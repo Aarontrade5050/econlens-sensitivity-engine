@@ -1,0 +1,76 @@
+ECONOLENS – ETAPA DE ACUMULACIÓN TÉCNICA
+
+1) MÉTRICAS DE IMPACTO EN NEGOCIOS (LAS 5)
+
+1.  Cambiar proveedor
+2.  Ajustar precio
+3.  Identificar riesgo estructural
+4.  Anticipar caída
+5.  Detectar oportunidad
+
+ENFOQUE ELEGIDO (PRIORIDAD INICIAL): Identificación de riesgo
+estructural mediante Sensibilidad Económica Dinámica.
+
+Objetivo técnico: Modelar cómo reaccionan actores económicos ante shocks
+de precio, volumen o concentración.
+
+2) ENFOQUE PRINCIPAL (LÍNEA D – RIESGO / SENSIBILIDAD)
+
+Construir un Motor de Sensibilidad Económica Dinámica que:
+
+-   Calcule variaciones mensuales de volumen y precio
+-   Calcule volatilidad rolling
+-   Estime elasticidad simple
+-   Detecte shocks estadísticos
+-   Genere un Score de Sensibilidad Económica (ISE)
+
+3) PLAN GENERAL 18 MESES
+
+FASE 1 (0–3 meses) - Motor cuantitativo sólido - Métricas dinámicas -
+Elasticidad - Volatilidad - Shock detection básico
+
+FASE 2 (3–6 meses) - Score compuesto (ISE) - Clasificación de actores -
+Refactorización y modularidad - Tests
+
+FASE 3 (6–12 meses) - API estructurada - Base de datos formal - Pipeline
+automatizado - Optimización performance
+
+FASE 4 (12–18 meses) - Dashboard funcional - Interpretabilidad
+económica - Documentación técnica seria - Proyecto tipo “tesis personal”
+publicable
+
+4) SEMANA 1 – MINI PASOS CONCRETOS
+
+Objetivo: Construir Capa 2 (Métricas Dinámicas)
+
+Día 1: - Crear repo - Estructura carpetas - Cargar dataset
+
+Día 2: - Precio unitario mensual - Volumen mensual - Valor mensual
+
+Día 3: - Δ% mensual volumen - Δ% mensual precio
+
+Día 4: - Volatilidad rolling 6/12 meses
+
+Día 5: - Elasticidad simple (ΔV / ΔP)
+
+Día 6: - Detección básica de shock (z-score o umbral)
+
+Día 7: - Consolidación pipeline - sample_output.csv - README básico
+
+5) RITUAL DE INICIO
+
+Esta no es una fase de motivación. Es una etapa de acumulación técnica.
+
+Durante 18 meses: - Priorizar profundidad sobre dispersión. - Medir
+progreso por entregables. - Aceptar imperfección inicial. - Evitar
+rediseñar constantemente. - No perseguir validación inmediata.
+
+6) LA REGLA PRINCIPAL
+
+No rediseñar mientras se ejecuta.
+
+Las decisiones estratégicas se toman fuera del bloque de trabajo.
+Durante el bloque: Solo se ejecuta lo ya definido.
+
+Progreso > perfección. Consistencia > intensidad. Acumulación >
+entusiasmo.
