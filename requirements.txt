@@ -1,3 +1,6 @@
 pandas
 numpy
 pytest
+polars
+openpyxl
+pyarrow

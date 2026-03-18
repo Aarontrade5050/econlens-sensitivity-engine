@@ -74,3 +74,7 @@ Durante el bloque: Solo se ejecuta lo ya definido.
 
 Progreso > perfección. Consistencia > intensidad. Acumulación >
 entusiasmo.
+
+****************************************************************************************
+El objetivo del proyecto es la construccion de una tabla, el output principal va ser una
+tabla o varias tablas
