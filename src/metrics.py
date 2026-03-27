@@ -134,3 +134,154 @@ def add_rolling_price_volatility(
             .alias(f"volatilidad_precio_{window}m")
         )
     )
+
+def add_simple_elasticity(df: pl.DataFrame) -> pl.DataFrame:
+    if df.is_empty():
+        raise ValueError("Input DataFrame is empty.")
+
+    return (
+        df.with_columns(
+            pl.when(
+                (pl.col('var_pct_precio_mensual') != 0) &
+                (pl.col('var_pct_volumen_mensual').is_not_null()) &
+                (pl.col('var_pct_precio_mensual').is_not_null())
+            )
+            .then(
+                pl.col('var_pct_volumen_mensual') / pl.col('var_pct_precio_mensual')
+            )
+            .otherwise(None)
+            .alias('elasticidad_simple')
+        )
+    )
+
+def add_shock_flag(
+    df: pl.DataFrame,
+    volume_threshold: float = 20.0,
+    price_threshold: float = 5.0,
+    volatility_threshold: float = 4.0,
+    elasticity_threshold: float = 2.0,
+) -> pl.DataFrame:
+    if df.is_empty():
+        raise ValueError("Input DataFrame is empty.")
+
+    required_cols = [
+        "var_pct_volumen_mensual",
+        "var_pct_precio_mensual",
+        "volatilidad_precio_6m",
+        "elasticidad_simple",
+    ]
+
+    missing_cols = [col for col in required_cols if col not in df.columns]
+    if missing_cols:
+        raise ValueError(
+            f"Missing required columns for shock detection: {missing_cols}"
+        )
+
+    volume_shock = pl.col("var_pct_volumen_mensual").abs() >= volume_threshold
+    price_shock = pl.col("var_pct_precio_mensual").abs() >= price_threshold
+    volatility_shock = (
+        pl.col("volatilidad_precio_6m").is_not_null()
+        & (pl.col("volatilidad_precio_6m").cast(pl.Float64) >= volatility_threshold)
+    )
+    elasticity_shock = (
+        pl.col("elasticidad_simple").is_not_null()
+        & (pl.col("elasticidad_simple").cast(pl.Float64).abs() >= elasticity_threshold)
+    )
+
+    shock_rule = (
+        (volume_shock & price_shock)
+        | (volume_shock & elasticity_shock)
+        | (price_shock & volatility_shock)
+    )
+
+    return df.with_columns(
+        pl.when(shock_rule)
+        .then(pl.lit(1))
+        .otherwise(pl.lit(0))
+        .alias("shock_compuesto_flag")
+    )
+
+
+def add_ise_score(df: pl.DataFrame) -> pl.DataFrame:
+    """
+    Add a normalized economic sensitivity score (ISE) in a 0-100 scale.
+
+    The score combines:
+    - absolute monthly volume variation
+    - absolute monthly price variation
+    - rolling price volatility
+    - absolute simple elasticity
+
+    A log1p transformation is applied to reduce the impact of extreme values.
+    The final score is capped and normalized to a 0-100 range.
+
+    Parameters
+    ----------
+    df : pl.DataFrame
+        Input dataframe with required metric columns.
+
+    Returns
+    -------
+    pl.DataFrame
+        Dataframe with:
+        - ise_score
+        - ise_nivel
+    """
+    if df.is_empty():
+        raise ValueError("Input DataFrame is empty.")
+
+    required_cols = [
+        "var_pct_volumen_mensual",
+        "var_pct_precio_mensual",
+        "volatilidad_precio_6m",
+        "elasticidad_simple",
+    ]
+    missing_cols = [col for col in required_cols if col not in df.columns]
+    if missing_cols:
+        raise ValueError(
+            f"Missing required columns for ISE score calculation: {missing_cols}"
+        )
+
+    ise_raw = (
+        pl.col("var_pct_volumen_mensual")
+        .cast(pl.Float64)
+        .abs()
+        .fill_null(0.0)
+        .log1p()
+        + pl.col("var_pct_precio_mensual")
+        .cast(pl.Float64)
+        .abs()
+        .fill_null(0.0)
+        .log1p()
+        + pl.col("volatilidad_precio_6m")
+        .cast(pl.Float64)
+        .fill_null(0.0)
+        .log1p()
+        + pl.col("elasticidad_simple")
+        .cast(pl.Float64)
+        .abs()
+        .fill_null(0.0)
+        .log1p()
+    )
+
+    max_expected = 10.0
+
+    ise_score_expr = (
+        pl.when(ise_raw > max_expected)
+        .then(pl.lit(max_expected))
+        .otherwise(ise_raw)
+        / max_expected
+        * 100
+    )
+
+    return (
+        df.with_columns(ise_score_expr.alias("ise_score"))
+        .with_columns(
+            pl.when(pl.col("ise_score") < 33)
+            .then(pl.lit("Bajo"))
+            .when(pl.col("ise_score") < 66)
+            .then(pl.lit("Medio"))
+            .otherwise(pl.lit("Alto"))
+            .alias("ise_nivel")
+        )
+    )
