@@ -12,6 +12,7 @@ def build_hs_monthly_base(
     day_col: str = "DIA",
     month_col: str = "MES",
     year_col: str = "AÑO",
+    actor_col: str | None = None,
 ) -> pl.DataFrame:
     """Filtra el DataFrame por un código HS, construye una fecha a partir de las
     columnas de día/mes/año, agrega los datos a nivel mensual por código HS y
@@ -52,7 +53,7 @@ def build_hs_monthly_base(
         .with_columns(
             pl.col("fecha").dt.truncate("1mo").alias("periodo")
         )
-        .group_by(["periodo", hs_col, unit_col])
+        .group_by(["periodo", hs_col, unit_col] + ([actor_col] if actor_col else []))
         .agg([
             pl.col(value_col).sum().alias("valor_total"),
             pl.col(quantity_col).sum().alias("volumen_total"),
@@ -63,17 +64,18 @@ def build_hs_monthly_base(
             .otherwise(None)
             .alias("precio")
         )
-        .select([
-            "periodo",
-            pl.col(hs_col).alias("hs_code"),
-            pl.col(unit_col).alias("unidad_medida"),
-            pl.col("volumen_total").alias("volumen"),
-            "precio",
-        ])
+        .select(
+            ["periodo", pl.col(hs_col).alias("hs_code")]
+            + ([pl.col(actor_col).alias("actor")] if actor_col else [])
+            + [pl.col(unit_col).alias("unidad_medida"), pl.col("volumen_total").alias("volumen"), "precio"]
+        )
         .sort(["periodo", "unidad_medida"])
     )
 
-def add_monthly_variation(df: pl.DataFrame) -> pl.DataFrame:
+def add_monthly_variation(
+    df: pl.DataFrame,
+    group_keys: list[str] = ["hs_code", "unidad_medida"],
+) -> pl.DataFrame:
     """Agrega columnas de variación porcentual mensual de volumen y precio a un
     DataFrame previamente construido con `build_hs_monthly_base`. El cálculo se
     realiza por grupo (hs_code, unidad_medida) usando ventanas sobre la serie
@@ -97,18 +99,18 @@ def add_monthly_variation(df: pl.DataFrame) -> pl.DataFrame:
         raise ValueError("Input DataFrame is empty.")
 
     return (
-        df.sort(["hs_code", "unidad_medida", "periodo"])
+        df.sort(group_keys + ["periodo"])
         .with_columns(
             [
                 (
                     (pl.col("volumen") / pl.col("volumen").shift(1) - 1) * 100
                 )
-                .over(["hs_code", "unidad_medida"])
+                .over(group_keys)
                 .alias("var_pct_volumen_mensual"),
                 (
                     (pl.col("precio") / pl.col("precio").shift(1) - 1) * 100
                 )
-                .over(["hs_code", "unidad_medida"])
+                .over(group_keys)
                 .alias("var_pct_precio_mensual"),
             ]
         )
@@ -118,6 +120,7 @@ def add_monthly_variation(df: pl.DataFrame) -> pl.DataFrame:
 def add_rolling_price_volatility(
     df: pl.DataFrame,
     window: int = 6,
+    group_keys: list[str] = ["hs_code", "unidad_medida"],
 ) -> pl.DataFrame:
     if df.is_empty():
         raise ValueError("Input DataFrame is empty.")
@@ -126,11 +129,11 @@ def add_rolling_price_volatility(
         raise ValueError("Window must be at least 2.")
 
     return (
-        df.sort(["hs_code", "unidad_medida", "periodo"])
+        df.sort(group_keys + ["periodo"])
         .with_columns(
             pl.col("var_pct_precio_mensual")
             .rolling_std(window_size=window, min_samples=window)
-            .over(["hs_code", "unidad_medida"])
+            .over(group_keys)
             .alias(f"volatilidad_precio_{window}m")
         )
     )

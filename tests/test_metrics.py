@@ -461,3 +461,123 @@ def test_add_ise_score_raises_error_when_required_columns_are_missing():
     ):
         add_ise_score(df)
 
+
+# --- build_hs_monthly_base con actor_col ---
+
+def test_build_hs_monthly_base_with_actor_col_includes_actor_in_output():
+    df = pl.DataFrame({
+        "DIA": [10, 15],
+        "MES": [1, 1],
+        "AÑO": [2025, 2025],
+        "hs_code": ["2710200012", "2710200012"],
+        "unidad_medida": ["L", "L"],
+        "valor": [100.0, 200.0],
+        "cantidad": [50.0, 100.0],
+        "IMPORTADOR": ["PETROPERU", "REPSOL"],
+    })
+
+    result = build_hs_monthly_base(df, "2710200012", actor_col="IMPORTADOR")
+
+    assert "actor" in result.columns
+
+
+def test_build_hs_monthly_base_with_actor_col_keeps_actors_separate():
+    df = pl.DataFrame({
+        "DIA": [10, 15, 10, 15],
+        "MES": [1, 1, 1, 1],
+        "AÑO": [2025, 2025, 2025, 2025],
+        "hs_code": ["2710200012"] * 4,
+        "unidad_medida": ["L"] * 4,
+        "valor": [100.0, 200.0, 60.0, 90.0],
+        "cantidad": [50.0, 100.0, 20.0, 30.0],
+        "IMPORTADOR": ["PETROPERU", "PETROPERU", "REPSOL", "REPSOL"],
+    })
+
+    result = build_hs_monthly_base(df, "2710200012", actor_col="IMPORTADOR")
+
+    assert result.shape[0] == 2
+    result_sorted = result.sort("actor")
+    assert result_sorted["actor"].to_list() == ["PETROPERU", "REPSOL"]
+    assert result_sorted["volumen"].to_list() == [150.0, 50.0]
+    assert result_sorted["precio"].to_list() == approx_list([2.0, 3.0])
+
+
+def test_build_hs_monthly_base_without_actor_col_excludes_actor_column():
+    df = pl.DataFrame({
+        "DIA": [10],
+        "MES": [1],
+        "AÑO": [2025],
+        "hs_code": ["2710200012"],
+        "unidad_medida": ["L"],
+        "valor": [100.0],
+        "cantidad": [50.0],
+    })
+
+    result = build_hs_monthly_base(df, "2710200012")
+
+    assert "actor" not in result.columns
+
+
+# --- add_monthly_variation con group_keys ---
+
+def test_add_monthly_variation_with_actor_keeps_actors_isolated():
+    df = pl.DataFrame({
+        "periodo": [
+            date(2025, 1, 1), date(2025, 2, 1),
+            date(2025, 1, 1), date(2025, 2, 1),
+        ],
+        "hs_code": ["2710200012"] * 4,
+        "unidad_medida": ["L"] * 4,
+        "actor": ["PETROPERU", "PETROPERU", "REPSOL", "REPSOL"],
+        "volumen": [100.0, 120.0, 200.0, 160.0],
+        "precio": [2.0, 2.5, 3.0, 2.7],
+    }).sort(["actor", "hs_code", "unidad_medida", "periodo"])
+
+    result = add_monthly_variation(
+        df, group_keys=["actor", "hs_code", "unidad_medida"]
+    )
+
+    result_sorted = result.sort(["actor", "periodo"])
+    var_vol = result_sorted["var_pct_volumen_mensual"].to_list()
+    var_price = result_sorted["var_pct_precio_mensual"].to_list()
+
+    # Primer mes de cada actor debe ser None
+    assert var_vol[0] is None   # PETROPERU ene
+    assert var_vol[2] is None   # REPSOL ene
+    assert var_vol[1] == pytest.approx(20.0)   # PETROPERU feb
+    assert var_vol[3] == pytest.approx(-20.0)  # REPSOL feb
+    assert var_price[1] == pytest.approx(25.0)
+    assert var_price[3] == pytest.approx(-10.0)
+
+
+# --- add_rolling_price_volatility con group_keys ---
+
+def test_add_rolling_price_volatility_with_actor_keeps_actors_isolated():
+    df = pl.DataFrame({
+        "periodo": [
+            date(2025, 1, 1), date(2025, 2, 1), date(2025, 3, 1),
+            date(2025, 1, 1), date(2025, 2, 1), date(2025, 3, 1),
+        ],
+        "hs_code": ["2710200012"] * 6,
+        "unidad_medida": ["L"] * 6,
+        "actor": ["PETROPERU"] * 3 + ["REPSOL"] * 3,
+        "var_pct_precio_mensual": [1.0, 1.0, 1.0, 1.0, 2.0, 3.0],
+    }).sort(["actor", "hs_code", "unidad_medida", "periodo"])
+
+    result = add_rolling_price_volatility(
+        df, window=3, group_keys=["actor", "hs_code", "unidad_medida"]
+    )
+
+    result_sorted = result.sort(["actor", "periodo"])
+    values = result_sorted["volatilidad_precio_3m"].to_list()
+
+    # Primeros 2 de cada actor deben ser None (window=3, min_samples=3)
+    assert values[0] is None   # PETROPERU ene
+    assert values[1] is None   # PETROPERU feb
+    assert values[3] is None   # REPSOL ene
+    assert values[4] is None   # REPSOL feb
+    # Tercero de PETROPERU: std([1,1,1]) = 0
+    assert values[2] == pytest.approx(0.0)
+    # Tercero de REPSOL: std([1,2,3]) != 0
+    assert values[5] is not None
+    assert values[5] != pytest.approx(0.0)
