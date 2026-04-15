@@ -90,3 +90,64 @@ tabla o varias tablas
 [✔] 4. Elasticidad
 [✔] 5. Shock detection
 [✔] 6. ISE score normalizado
+
+****************************************************************************************
+SESIÓN 2025-04-14 – TAREAS COMPLETADAS
+****************************************************************************************
+
+FASE 2 – CERRADA
+
+[✔] Variante actor (run_pipeline con actor_col)
+    - build_hs_monthly_base acepta actor_col opcional
+    - add_monthly_variation acepta group_keys
+    - add_rolling_price_volatility acepta group_keys
+    - Columna "actor" en el output cuando se activa
+    - 7 tests nuevos en test_metrics.py
+
+[✔] Pipeline orquestado (src/pipeline.py – run_pipeline)
+    - Conecta io → metrics → output en una sola llamada
+    - Soporta nivel mercado y nivel actor
+    - 6 tests en tests/test_pipeline.py
+    - sample_output.csv generado en data/processed/
+    - run.py como script de entrada
+
+[✔] Validación de input (src/validation.py)
+    - Valida columnas requeridas
+    - Valida columnas numéricas no vacías
+    - Valida que el hs_code exista en el dataset
+    - Conectada como primera línea de run_pipeline
+    - 4 tests en tests/test_validation.py
+
+[✔] Multi-producto (run_pipeline_multi)
+    - hs_codes=None corre todos los productos del dataset
+    - hs_codes=[...] corre solo los especificados
+    - Salta hs_codes inválidos y continúa
+    - Soporta variante actor
+    - 5 tests nuevos en tests/test_pipeline.py
+
+TOTAL TESTS: 44 – todos verdes
+
+****************************************************************************************
+PRÓXIMA SESIÓN – TAREAS A EJECUTAR
+****************************************************************************************
+
+FASE 3 – CONTINUAR
+
+[ ] 1. Base de datos (DuckDB)
+    - Instalar duckdb
+    - Crear src/database.py
+    - Función save_results(df, db_path) que guarde el output de run_pipeline_multi
+    - Función load_results(db_path, filters) que consulte sin recargar todo
+    - Tests con TDD
+    - Conectar al pipeline: run_pipeline_multi puede guardar directo a DB
+
+[ ] 2. API (FastAPI) – después de la base de datos
+    - Instalar fastapi + uvicorn
+    - Endpoint GET /pipeline/{hs_code} → nivel mercado
+    - Endpoint GET /pipeline/{hs_code}/actores → nivel actor
+    - Los endpoints consultan la DB, no recalculan
+    - Tests con TDD
+
+[ ] 3. Pipeline automatizado – después de la API
+    - Script que actualiza la DB con nuevos archivos en data/raw/
+    - Detecta hs_codes nuevos automáticamente

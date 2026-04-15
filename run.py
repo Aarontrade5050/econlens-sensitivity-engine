@@ -1,12 +1,12 @@
 import polars as pl
-from src.pipeline import run_pipeline
+from src.pipeline import run_pipeline, run_pipeline_multi
 
 df = pl.read_parquet("data/interim/df_all.parquet")
 df = df.with_columns(pl.col("PARTIDA ARANCELARIA").cast(pl.String))
 
-result = run_pipeline(
+result = run_pipeline_multi(
     df,
-    hs_code="2710200012",
+    hs_codes=None,
     hs_col="PARTIDA ARANCELARIA",
     unit_col="UNIDAD DE MEDIDA",
     value_col="US$ FOB",

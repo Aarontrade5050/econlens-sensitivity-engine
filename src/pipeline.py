@@ -9,6 +9,7 @@ from src.metrics import (
     add_shock_flag,
     add_ise_score,
 )
+from src.validation import validate_dataframe
 
 
 def run_pipeline(
@@ -24,6 +25,11 @@ def run_pipeline(
     actor_col: str | None = None,
     volatility_window: int = 6,
 ) -> pl.DataFrame:
+    required_cols = [hs_col, unit_col, value_col, quantity_col, day_col, month_col, year_col]
+    if actor_col:
+        required_cols.append(actor_col)
+    validate_dataframe(df, required_cols, hs_code=hs_code, hs_col=hs_col)
+
     group_keys = (["actor"] if actor_col else []) + ["hs_code", "unidad_medida"]
 
     result = build_hs_monthly_base(
@@ -43,3 +49,41 @@ def run_pipeline(
     result = add_shock_flag(result)
     result = add_ise_score(result)
     return result
+
+
+def run_pipeline_multi(
+    df: pl.DataFrame,
+    hs_codes: list[str] | None = None,
+    hs_col: str = "hs_code",
+    unit_col: str = "unidad_medida",
+    value_col: str = "valor",
+    quantity_col: str = "cantidad",
+    day_col: str = "DIA",
+    month_col: str = "MES",
+    year_col: str = "AÑO",
+    actor_col: str | None = None,
+    volatility_window: int = 6,
+) -> pl.DataFrame:
+    if hs_codes is None:
+        hs_codes = df[hs_col].unique().to_list()
+
+    results = []
+    for hs_code in hs_codes:
+        try:
+            result = run_pipeline(
+                df, hs_code,
+                hs_col=hs_col,
+                unit_col=unit_col,
+                value_col=value_col,
+                quantity_col=quantity_col,
+                day_col=day_col,
+                month_col=month_col,
+                year_col=year_col,
+                actor_col=actor_col,
+                volatility_window=volatility_window,
+            )
+            results.append(result)
+        except ValueError:
+            continue
+
+    return pl.concat(results)

@@ -1,7 +1,7 @@
 import pytest
 import polars as pl
 
-from src.pipeline import run_pipeline
+from src.pipeline import run_pipeline, run_pipeline_multi
 
 
 def _make_raw_df(actors=None):
@@ -76,3 +76,54 @@ def test_run_pipeline_with_actor_col_keeps_actors_isolated():
     # El primer mes de cada actor no tiene mes anterior → variación debe ser None
     assert petroperu_first["var_pct_volumen_mensual"][0] is None
     assert repsol_first["var_pct_volumen_mensual"][0] is None
+
+
+# --- multi-producto ---
+
+def _make_multi_hs_df(hs_codes=None):
+    """8 meses de datos para múltiples hs_codes."""
+    hs_codes = hs_codes or ["2710200012", "2709000000"]
+    rows = []
+    for hs in hs_codes:
+        for month in range(1, 9):
+            rows.append({
+                "DIA": 1,
+                "MES": month,
+                "AÑO": 2025,
+                "hs_code": hs,
+                "unidad_medida": "L",
+                "valor": float(100 * month),
+                "cantidad": 50.0,
+                "IMPORTADOR": "EMPRESA_A",
+            })
+    return pl.DataFrame(rows)
+
+
+def test_run_pipeline_multi_returns_results_for_all_specified_hs_codes():
+    df = _make_multi_hs_df()
+    result = run_pipeline_multi(df, hs_codes=["2710200012", "2709000000"])
+    assert set(result["hs_code"].unique().to_list()) == {"2710200012", "2709000000"}
+
+
+def test_run_pipeline_multi_with_none_runs_all_hs_codes_in_dataset():
+    df = _make_multi_hs_df(hs_codes=["2710200012", "2709000000", "3901200000"])
+    result = run_pipeline_multi(df, hs_codes=None)
+    assert set(result["hs_code"].unique().to_list()) == {"2710200012", "2709000000", "3901200000"}
+
+
+def test_run_pipeline_multi_output_has_same_columns_as_single_pipeline():
+    df = _make_multi_hs_df()
+    result = run_pipeline_multi(df, hs_codes=["2710200012", "2709000000"])
+    assert EXPECTED_COLUMNS.issubset(set(result.columns))
+
+
+def test_run_pipeline_multi_with_actor_col_works():
+    df = _make_multi_hs_df()
+    result = run_pipeline_multi(df, hs_codes=["2710200012", "2709000000"], actor_col="IMPORTADOR")
+    assert "actor" in result.columns
+
+
+def test_run_pipeline_multi_skips_invalid_hs_code_and_continues():
+    df = _make_multi_hs_df(hs_codes=["2710200012"])
+    result = run_pipeline_multi(df, hs_codes=["2710200012", "9999999999"])
+    assert set(result["hs_code"].unique().to_list()) == {"2710200012"}
