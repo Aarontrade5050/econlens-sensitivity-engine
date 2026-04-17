@@ -128,26 +128,40 @@ FASE 2 – CERRADA
 TOTAL TESTS: 44 – todos verdes
 
 ****************************************************************************************
+SESIÓN 2025-04-16 – TAREAS COMPLETADAS
+****************************************************************************************
+
+FASE 3 – PARCIALMENTE COMPLETADA
+
+[✔] Base de datos (DuckDB)
+    - Instalado duckdb
+    - Creado src/database.py
+    - save_results(df, db_path, if_exists="replace"|"append")
+    - load_results(db_path, hs_code, actor, from_period, to_period)
+    - Filtros: hs_code, actor, rango de fechas
+    - 9 tests en tests/test_database.py
+    - run_pipeline_multi acepta db_path opcional — guarda directo a DB
+    - run.py actualizado: corre pipeline completo y consulta desde DB
+    - DB generada en data/processed/econolens.duckdb
+
+TOTAL TESTS: 53 – todos verdes
+
+****************************************************************************************
 PRÓXIMA SESIÓN – TAREAS A EJECUTAR
 ****************************************************************************************
 
 FASE 3 – CONTINUAR
 
-[ ] 1. Base de datos (DuckDB)
-    - Instalar duckdb
-    - Crear src/database.py
-    - Función save_results(df, db_path) que guarde el output de run_pipeline_multi
-    - Función load_results(db_path, filters) que consulte sin recargar todo
-    - Tests con TDD
-    - Conectar al pipeline: run_pipeline_multi puede guardar directo a DB
-
-[ ] 2. API (FastAPI) – después de la base de datos
+[ ] 1. API (FastAPI)
     - Instalar fastapi + uvicorn
-    - Endpoint GET /pipeline/{hs_code} → nivel mercado
-    - Endpoint GET /pipeline/{hs_code}/actores → nivel actor
+    - Crear src/api.py
+    - Endpoint GET /results/{hs_code} → nivel mercado desde DB
+    - Endpoint GET /results/{hs_code}/actores → nivel actor desde DB
+    - Endpoint GET /results → todos los productos (con filtros opcionales)
     - Los endpoints consultan la DB, no recalculan
     - Tests con TDD
 
-[ ] 3. Pipeline automatizado – después de la API
-    - Script que actualiza la DB con nuevos archivos en data/raw/
-    - Detecta hs_codes nuevos automáticamente
+[ ] 2. Pipeline automatizado
+    - Script que detecta archivos nuevos en data/raw/
+    - Actualiza la DB con los nuevos datos (if_exists="append")
+    - Detecta hs_codes automáticamente

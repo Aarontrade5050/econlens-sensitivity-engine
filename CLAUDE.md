@@ -1,0 +1,93 @@
+# EconoLens – Contexto del Proyecto
+
+## Qué es este proyecto
+
+Motor de Sensibilidad Económica Dinámica para análisis de importaciones Perú–USA.
+Transforma datos de aduanas (Excel/Parquet) en métricas de riesgo estructural por producto e importador.
+
+El output principal es una tabla con:
+
+| periodo | actor | hs_code | volumen | precio | var_pct_volumen_mensual | var_pct_precio_mensual | volatilidad_precio_6m | elasticidad_simple | shock_compuesto_flag | ise_score | ise_nivel |
+
+## Plan 18 meses
+
+- **FASE 1** ✅ Motor cuantitativo (variación, volatilidad, elasticidad, shock, ISE)
+- **FASE 2** ✅ Score ISE, variante actor, pipeline orquestado, validación, multi-producto
+- **FASE 3** 🔄 Base de datos DuckDB ✅ — API FastAPI — Pipeline automatizado
+- **FASE 4** Dashboard Streamlit — Interpretabilidad económica — Documentación publicable
+
+## Estructura del proyecto
+
+```
+src/
+  metrics.py       # Cálculo de métricas (variación, volatilidad, elasticidad, shock, ISE)
+  pipeline.py      # run_pipeline() y run_pipeline_multi() — orquestación del flujo
+  validation.py    # validate_dataframe() — validación de input antes del pipeline
+  database.py      # save_results() y load_results() — persistencia en DuckDB
+  io.py            # Conversión XLSX → Parquet
+tests/
+  test_metrics.py
+  test_pipeline.py
+  test_validation.py
+  test_database.py
+data/
+  raw/             # Excel originales (ignorados por git)
+  interim/         # df_all.parquet (ignorado por git)
+  processed/       # econolens.duckdb, CSVs de output (ignorados por git)
+run.py             # Script de entrada principal
+```
+
+## Datos
+
+- Fuente: importaciones Perú desde USA 2025 (SUNAT)
+- Columnas clave del raw: `PARTIDA ARANCELARIA`, `IMPORTADOR`, `US$ FOB`, `CANTIDAD`, `UNIDAD DE MEDIDA`, `DÍA`, `MES`, `AÑO`
+- `PARTIDA ARANCELARIA` viene como Int64 en el parquet — se castea a String antes del pipeline
+
+## Reglas de código
+
+### Estilo
+- Sigue **PEP8**
+- **Type hints** en todas las funciones y clases
+- **Docstrings** breves y útiles en funciones públicas
+- Sin duplicación de lógica
+
+### Arquitectura
+- **Separación clara de responsabilidades**: io / validación / métricas / pipeline / base de datos
+- **Modularidad**: cada función hace una sola cosa
+- **Configuración centralizada**: sin rutas, nombres o parámetros hardcodeados
+- **Diseño escalable y mantenible**
+
+### Desarrollo
+- **TDD obligatorio**: escribir tests que fallen (RED) antes de implementar (GREEN)
+- Correr suite completa (`pytest -v`) después de cada cambio para confirmar que nada se rompe
+- **Manejo de errores explícito**: `ValueError` con mensajes claros, no errores crípticos de Polars
+
+### Performance
+- Usar **Polars** sobre Pandas
+- Preferir **lazy evaluation** (`scan_parquet`, `.lazy()`) cuando el dataset lo justifique
+- Evitar recalcular lo que ya está en la base de datos
+
+### Observabilidad
+- Usar **logging** en lugar de `print()`
+- Nivel `INFO` para flujo normal, `WARNING` para hs_codes saltados en multi-producto
+
+### CI (pendiente configurar)
+- Tests automáticos en cada push
+- Lint automático (ruff o flake8)
+
+## Dependencias actuales
+
+```
+polars
+duckdb
+pyarrow
+openpyxl
+pytest
+pandas  # solo para conversión inicial en notebook
+numpy
+```
+
+## Regla principal del proyecto
+
+> No rediseñar mientras se ejecuta.
+> Progreso > perfección. Consistencia > intensidad. Acumulación > entusiasmo.
