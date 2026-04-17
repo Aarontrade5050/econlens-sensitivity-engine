@@ -10,6 +10,7 @@ from src.metrics import (
     add_ise_score,
 )
 from src.validation import validate_dataframe
+from src.database import save_results
 
 
 def run_pipeline(
@@ -63,6 +64,8 @@ def run_pipeline_multi(
     year_col: str = "AÑO",
     actor_col: str | None = None,
     volatility_window: int = 6,
+    db_path=None,
+    if_exists: str = "replace",
 ) -> pl.DataFrame:
     if hs_codes is None:
         hs_codes = df[hs_col].unique().to_list()
@@ -86,4 +89,9 @@ def run_pipeline_multi(
         except ValueError:
             continue
 
-    return pl.concat(results)
+    combined = pl.concat(results)
+
+    if db_path is not None:
+        save_results(combined, db_path, if_exists=if_exists)
+
+    return combined
