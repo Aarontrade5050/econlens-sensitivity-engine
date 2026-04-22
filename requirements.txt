@@ -4,3 +4,6 @@ pytest
 polars
 openpyxl
 pyarrow
+DuckDB
+fastapi
+uvicorn

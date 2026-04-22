@@ -168,27 +168,38 @@ TOTAL TESTS: 63 – todos verdes
 PRÓXIMA SESIÓN – TAREAS A EJECUTAR
 ****************************************************************************************
 
-FASE 3 – CERRAR
+FASE 3 – CERRADA
 
-[ ] 1. Pipeline automatizado
-    - Script que detecta archivos nuevos en data/raw/
-    - Actualiza la DB con los nuevos datos (if_exists="append")
-    - Detecta hs_codes automáticamente
-    - No reprocesa datos que ya están en la DB
+[✔] Pipeline automatizado
+    - Creado src/updater.py
+    - load_manifest / save_manifest — rastrea archivos procesados en JSON
+    - find_new_files — detecta archivos nuevos en data/raw/
+    - run_pipeline_auto — procesa solo archivos nuevos, appends a DB, actualiza manifest
+    - file_reader inyectable — por defecto lee xlsx, en tests usa parquet
+    - 9 tests en tests/test_updater.py
+
+TOTAL TESTS: 73 – todos verdes
+
+****************************************************************************************
+PRÓXIMA SESIÓN – TAREAS A EJECUTAR
+****************************************************************************************
 
 FASE 4 – INICIAR
 
-[ ] 2. Dashboard (Streamlit)
+[ ] 1. Dashboard (Streamlit)
     - Instalar streamlit
     - Crear src/dashboard.py
     - Vista principal: tabla ISE por producto y actor
     - Filtros: producto, actor, rango de fechas
-    - Consume la API o la DB directamente
+    - Consume la DB directamente via load_results()
+    - Gráfico de ISE por actor en el tiempo
 
-[ ] 3. Interpretabilidad económica
+[ ] 2. Interpretabilidad económica
     - Narrativas automáticas por actor/producto
     - Ej: "VALERO redujo volumen un 35% ante subida de precio en agosto"
 
-[ ] 4. Documentación técnica
+[ ] 3. Documentación técnica
     - README completo con instrucciones de instalación y uso
     - Decisiones de diseño documentadas
+    - Instrucciones para correr la API: uvicorn src.api:app --reload
+    - Instrucciones para actualizar datos: python run.py
