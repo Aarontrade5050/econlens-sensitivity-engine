@@ -147,21 +147,48 @@ FASE 3 – PARCIALMENTE COMPLETADA
 TOTAL TESTS: 53 – todos verdes
 
 ****************************************************************************************
+SESIÓN 2025-04-21 – TAREAS COMPLETADAS
+****************************************************************************************
+
+FASE 3 – PARCIALMENTE COMPLETADA
+
+[✔] API (FastAPI)
+    - Instalado fastapi + uvicorn + httpx
+    - Creado src/api.py
+    - GET /results → todos los resultados (filtros: hs_code, actor, from_period, to_period)
+    - GET /results/{hs_code} → resultados de un producto (404 si no existe)
+    - GET /results/{hs_code}/actores → resultados con breakdown por actor
+    - Dependency injection con get_db_path() — DB_PATH configurable vía env var
+    - 10 tests en tests/test_api.py
+    - Documentación interactiva en http://localhost:8000/docs
+
+TOTAL TESTS: 63 – todos verdes
+
+****************************************************************************************
 PRÓXIMA SESIÓN – TAREAS A EJECUTAR
 ****************************************************************************************
 
-FASE 3 – CONTINUAR
+FASE 3 – CERRAR
 
-[ ] 1. API (FastAPI)
-    - Instalar fastapi + uvicorn
-    - Crear src/api.py
-    - Endpoint GET /results/{hs_code} → nivel mercado desde DB
-    - Endpoint GET /results/{hs_code}/actores → nivel actor desde DB
-    - Endpoint GET /results → todos los productos (con filtros opcionales)
-    - Los endpoints consultan la DB, no recalculan
-    - Tests con TDD
-
-[ ] 2. Pipeline automatizado
+[ ] 1. Pipeline automatizado
     - Script que detecta archivos nuevos en data/raw/
     - Actualiza la DB con los nuevos datos (if_exists="append")
     - Detecta hs_codes automáticamente
+    - No reprocesa datos que ya están en la DB
+
+FASE 4 – INICIAR
+
+[ ] 2. Dashboard (Streamlit)
+    - Instalar streamlit
+    - Crear src/dashboard.py
+    - Vista principal: tabla ISE por producto y actor
+    - Filtros: producto, actor, rango de fechas
+    - Consume la API o la DB directamente
+
+[ ] 3. Interpretabilidad económica
+    - Narrativas automáticas por actor/producto
+    - Ej: "VALERO redujo volumen un 35% ante subida de precio en agosto"
+
+[ ] 4. Documentación técnica
+    - README completo con instrucciones de instalación y uso
+    - Decisiones de diseño documentadas

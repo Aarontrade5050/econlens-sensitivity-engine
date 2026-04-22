@@ -13,7 +13,7 @@ El output principal es una tabla con:
 
 - **FASE 1** ✅ Motor cuantitativo (variación, volatilidad, elasticidad, shock, ISE)
 - **FASE 2** ✅ Score ISE, variante actor, pipeline orquestado, validación, multi-producto
-- **FASE 3** 🔄 Base de datos DuckDB ✅ — API FastAPI — Pipeline automatizado
+- **FASE 3** 🔄 Base de datos DuckDB ✅ — API FastAPI ✅ — Pipeline automatizado
 - **FASE 4** Dashboard Streamlit — Interpretabilidad económica — Documentación publicable
 
 ## Estructura del proyecto
@@ -24,12 +24,14 @@ src/
   pipeline.py      # run_pipeline() y run_pipeline_multi() — orquestación del flujo
   validation.py    # validate_dataframe() — validación de input antes del pipeline
   database.py      # save_results() y load_results() — persistencia en DuckDB
+  api.py           # FastAPI — endpoints GET /results, /results/{hs_code}, /results/{hs_code}/actores
   io.py            # Conversión XLSX → Parquet
 tests/
   test_metrics.py
   test_pipeline.py
   test_validation.py
   test_database.py
+  test_api.py
 data/
   raw/             # Excel originales (ignorados por git)
   interim/         # df_all.parquet (ignorado por git)
@@ -85,6 +87,9 @@ openpyxl
 pytest
 pandas  # solo para conversión inicial en notebook
 numpy
+fastapi
+uvicorn
+httpx   # requerido por FastAPI TestClient
 ```
 
 ## Regla principal del proyecto
