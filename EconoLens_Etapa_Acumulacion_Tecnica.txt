@@ -184,22 +184,42 @@ TOTAL TESTS: 73 – todos verdes
 PRÓXIMA SESIÓN – TAREAS A EJECUTAR
 ****************************************************************************************
 
-FASE 4 – INICIAR
+****************************************************************************************
+SESIÓN 2026-05-14 – TAREAS COMPLETADAS
+****************************************************************************************
 
-[ ] 1. Dashboard (Streamlit)
-    - Instalar streamlit
-    - Crear src/dashboard.py
-    - Vista principal: tabla ISE por producto y actor
-    - Filtros: producto, actor, rango de fechas
-    - Consume la DB directamente via load_results()
-    - Gráfico de ISE por actor en el tiempo
+FASE 4 – PARCIALMENTE COMPLETADA
+
+[✔] Dashboard (Streamlit)
+    - Instalado streamlit + plotly
+    - Creado src/dashboard.py
+    - Carga datos desde DuckDB via load_results() (una sola vez, cacheado)
+    - Filtros en sidebar: HS Code, Importador, rango de fechas
+    - Filtrado en memoria sobre df_all (sin segunda llamada a DB)
+    - Métricas resumen: total registros, Alto / Medio / Bajo (via group_by)
+    - Gráfico de línea ISE en el tiempo (Plotly, agrupado por actor o hs_code)
+    - Tabla de resultados con columnas seleccionadas
+    - Corrección de import path: sys.path.insert para correr con streamlit run
+    - Corrección de filtro de periodo: comparación directa con date objects (no str)
+    - Correr con: streamlit run src/dashboard.py
+
+TOTAL TESTS: 73 – todos verdes (sin cambios en tests para el dashboard)
+
+****************************************************************************************
+PRÓXIMA SESIÓN – TAREAS A EJECUTAR
+****************************************************************************************
+
+FASE 4 – COMPLETAR
 
 [ ] 2. Interpretabilidad económica
     - Narrativas automáticas por actor/producto
     - Ej: "VALERO redujo volumen un 35% ante subida de precio en agosto"
+    - Función generate_narrative(row) en src/narratives.py
+    - Integrar narrativas en el dashboard como columna o panel lateral
 
 [ ] 3. Documentación técnica
     - README completo con instrucciones de instalación y uso
     - Decisiones de diseño documentadas
     - Instrucciones para correr la API: uvicorn src.api:app --reload
+    - Instrucciones para correr el dashboard: streamlit run src/dashboard.py
     - Instrucciones para actualizar datos: python run.py
