@@ -14,7 +14,7 @@ El output principal es una tabla con:
 - **FASE 1** ✅ Motor cuantitativo (variación, volatilidad, elasticidad, shock, ISE)
 - **FASE 2** ✅ Score ISE, variante actor, pipeline orquestado, validación, multi-producto
 - **FASE 3** ✅ Base de datos DuckDB ✅ — API FastAPI ✅ — Pipeline automatizado ✅
-- **FASE 4** ✅ Dashboard Streamlit — Interpretabilidad económica — Documentación publicable
+- **FASE 4** ✅ Dashboard Streamlit ✅ — Interpretabilidad económica ✅ — Documentación publicable ✅
 
 ## Estructura del proyecto
 

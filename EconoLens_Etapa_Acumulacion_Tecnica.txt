@@ -222,9 +222,34 @@ FASE 4 – COMPLETAR
 
 TOTAL TESTS: 96 – todos verdes
 
-[ ] 3. Documentación técnica
-    - README completo con instrucciones de instalación y uso
-    - Decisiones de diseño documentadas
-    - Instrucciones para correr la API: uvicorn src.api:app --reload
-    - Instrucciones para correr el dashboard: streamlit run src/dashboard.py
-    - Instrucciones para actualizar datos: python run.py
+[✔] 3. Documentación técnica
+    - README.md completo: instalación, uso, métricas, tests, decisiones de diseño
+    - Secciones: output principal, estructura, comandos, endpoints API, dependencias
+    - requirements.txt actualizado con todas las dependencias del proyecto
+
+FASE 4 – CERRADA
+
+TOTAL TESTS: 96 – todos verdes
+
+****************************************************************************************
+PROYECTO COMPLETADO – PLAN 18 MESES
+****************************************************************************************
+
+Stack completo construido:
+  datos (SUNAT xlsx) → io → validación → métricas → pipeline → DuckDB → API → dashboard
+
+Módulos:
+  src/metrics.py      — variación, volatilidad, elasticidad, shock, ISE
+  src/pipeline.py     — run_pipeline / run_pipeline_multi / db_path opcional
+  src/validation.py   — validate_dataframe con mensajes claros
+  src/database.py     — save_results / load_results (DuckDB)
+  src/api.py          — FastAPI con 3 endpoints y dependency injection
+  src/updater.py      — pipeline automatizado con manifest JSON
+  src/dashboard.py    — Streamlit con filtros, gráfico ISE, tabla, eventos destacados
+  src/narratives.py   — generate_narrative / add_narratives (reglas, sin LLM)
+
+Para continuar el proyecto en futuras sesiones, posibles extensiones:
+  - Clasificación de actores por perfil de riesgo (clustering)
+  - Alertas automáticas cuando ISE supera umbral
+  - Comparación entre períodos (year-over-year)
+  - Soporte multi-país (no solo USA)
