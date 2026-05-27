@@ -211,11 +211,16 @@ PRÓXIMA SESIÓN – TAREAS A EJECUTAR
 
 FASE 4 – COMPLETAR
 
-[ ] 2. Interpretabilidad económica
-    - Narrativas automáticas por actor/producto
-    - Ej: "VALERO redujo volumen un 35% ante subida de precio en agosto"
-    - Función generate_narrative(row) en src/narratives.py
-    - Integrar narrativas en el dashboard como columna o panel lateral
+[✔] 2. Interpretabilidad económica
+    - Creado src/narratives.py
+    - generate_narrative(row: dict) -> str — narrativa por fila basada en reglas
+    - add_narratives(df) -> df — agrega columna "narrativa" al DataFrame
+    - Umbrales: volumen ±20%, precio ±10%, volatilidad >0.3
+    - Prioridad: shock → volumen → precio → volatilidad → cierre con ISE
+    - Integrado en dashboard: columna "narrativa" en tabla + panel "Eventos destacados" (ISE Alto)
+    - 18 tests en tests/test_narratives.py
+
+TOTAL TESTS: 96 – todos verdes
 
 [ ] 3. Documentación técnica
     - README completo con instrucciones de instalación y uso

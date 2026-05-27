@@ -27,6 +27,7 @@ src/
   api.py           # FastAPI — endpoints GET /results, /results/{hs_code}, /results/{hs_code}/actores
   updater.py       # run_pipeline_auto() — detecta archivos nuevos y actualiza la DB
   dashboard.py     # Streamlit — visualización ISE, filtros por producto/actor/período, gráfico + tabla
+  narratives.py    # generate_narrative(row) y add_narratives(df) — texto automático por fila ISE
   io.py            # Conversión XLSX → Parquet
 tests/
   test_metrics.py
@@ -35,6 +36,7 @@ tests/
   test_database.py
   test_api.py
   test_updater.py
+  test_narratives.py
 data/
   raw/             # Excel originales (ignorados por git)
   interim/         # df_all.parquet (ignorado por git)

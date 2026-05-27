@@ -8,6 +8,7 @@ import plotly.express as px
 import polars as pl
 
 from src.database import load_results
+from src.narratives import add_narratives
 
 DB_PATH = Path("data/processed/econolens.duckdb")
 
@@ -74,8 +75,8 @@ col4.metric("🟢 Bajo", int(ise_counts.get("Bajo", 0)))
 
 st.divider()
 
-# --- preparar datos ordenados una sola vez ---
-df_sorted = df.sort("periodo")
+# --- preparar datos ordenados una sola vez (con narrativas) ---
+df_sorted = add_narratives(df.sort("periodo"))
 df_pd = df_sorted.to_pandas()
 
 # --- gráfico ISE en el tiempo ---
@@ -105,11 +106,22 @@ display_cols = [c for c in [
     "periodo", "hs_code", "actor", "volumen", "precio",
     "var_pct_volumen_mensual", "var_pct_precio_mensual",
     "volatilidad_precio_6m", "elasticidad_simple",
-    "shock_compuesto_flag", "ise_score", "ise_nivel",
-] if c in df.columns]
+    "shock_compuesto_flag", "ise_score", "ise_nivel", "narrativa",
+] if c in df_sorted.columns]
 
 st.dataframe(
     df_pd[display_cols],
     use_container_width=True,
     height=400,
 )
+
+# --- panel de narrativas destacadas ---
+st.divider()
+st.subheader("🗞️ Eventos destacados")
+
+alto = df_sorted.filter(pl.col("ise_nivel") == "Alto")
+if alto.is_empty():
+    st.info("No hay registros con ISE Alto en la selección actual.")
+else:
+    for row in alto.sort("ise_score", descending=True).to_dicts():
+        st.warning(row["narrativa"])
