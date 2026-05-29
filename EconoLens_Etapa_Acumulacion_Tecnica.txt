@@ -232,24 +232,67 @@ FASE 4 – CERRADA
 TOTAL TESTS: 96 – todos verdes
 
 ****************************************************************************************
-PROYECTO COMPLETADO – PLAN 18 MESES
+SESIÓN 2026-05-28 – TAREAS COMPLETADAS
+****************************************************************************************
+
+FASE 5 – CERRADA
+
+[✔] Dashboard profesional multi-tab
+    - Auditado parquet raw: 64 columnas, 1.2M filas
+    - Columnas clave nuevas confirmadas: ADUANA (17 puertos), PAÍS DE ADQUISICIÓN (87 países)
+    - PAÍS DE ORIGEN siempre es ESTADOS UNIDOS — no útil para análisis geográfico
+    - Creado src/aggregations.py con 5 funciones de mercado:
+        · compute_market_share     — cuota de volumen por importador
+        · compute_price_by_country — precio FOB promedio por país de adquisición
+        · compute_price_by_route   — precio FOB promedio por aduana de ingreso
+        · compute_price_spread     — spread min/max de precio por importador
+        · compute_entities_over_time — empresas activas por período
+        · run_aggregations()       — ejecuta las 5 y guarda en DuckDB
+    - Actualizado src/database.py: agregado load_aggregation(db_path, table, hs_code)
+    - Reescrito src/dashboard.py: 4 tabs
+        · Tab 1 — Competidores e Importadores (market share + progress bars + 3 KPIs)
+        · Tab 2 — Precios, Rutas y Adquisición (precio por país / aduana / spread)
+        · Tab 3 — Evolución Temporal (entidades activas + volumen/precio over time)
+        · Tab 4 — Alertas ISE (shocks con narrativas automáticas)
+    - Selector de partida arancelaria en el header (no en sidebar)
+    - Creado .streamlit/config.toml: dark theme (#0f172a fondo, #38bdf8 acento)
+    - Actualizado run.py: ejecuta pipeline ISE + run_aggregations() en un solo pass
+    - Bug detectado y corregido: PARTIDA ARANCELARIA debe castearse a String
+      ANTES de pasar df a run_aggregations() — no releer el parquet sin cast
+    - 12 tests en tests/test_aggregations.py
+
+TOTAL TESTS: 107 – todos verdes
+
+Tablas activas en econolens.duckdb:
+  sensitivity_results   — ISE por actor/periodo (pipeline principal)
+  market_share          — cuota de volumen por importador
+  price_by_country      — precio por país de adquisición
+  price_by_route        — precio por aduana de ingreso
+  price_spread          — spread min/max por importador
+  entities_over_time    — empresas activas por periodo
+
+****************************************************************************************
+PROYECTO COMPLETADO – PLAN 18 MESES + FASE 5
 ****************************************************************************************
 
 Stack completo construido:
   datos (SUNAT xlsx) → io → validación → métricas → pipeline → DuckDB → API → dashboard
 
 Módulos:
-  src/metrics.py      — variación, volatilidad, elasticidad, shock, ISE
-  src/pipeline.py     — run_pipeline / run_pipeline_multi / db_path opcional
-  src/validation.py   — validate_dataframe con mensajes claros
-  src/database.py     — save_results / load_results (DuckDB)
-  src/api.py          — FastAPI con 3 endpoints y dependency injection
-  src/updater.py      — pipeline automatizado con manifest JSON
-  src/dashboard.py    — Streamlit con filtros, gráfico ISE, tabla, eventos destacados
-  src/narratives.py   — generate_narrative / add_narratives (reglas, sin LLM)
+  src/metrics.py       — variación, volatilidad, elasticidad, shock, ISE
+  src/pipeline.py      — run_pipeline / run_pipeline_multi / db_path opcional
+  src/validation.py    — validate_dataframe con mensajes claros
+  src/database.py      — save_results / load_results / load_aggregation (DuckDB)
+  src/api.py           — FastAPI con 3 endpoints y dependency injection
+  src/updater.py       — pipeline automatizado con manifest JSON
+  src/dashboard.py     — Streamlit 4 tabs: Competidores / Precios / Evolución / Alertas
+  src/narratives.py    — generate_narrative / add_narratives (reglas, sin LLM)
+  src/aggregations.py  — 5 funciones de mercado + run_aggregations()
 
 Para continuar el proyecto en futuras sesiones, posibles extensiones:
   - Clasificación de actores por perfil de riesgo (clustering)
   - Alertas automáticas cuando ISE supera umbral
   - Comparación entre períodos (year-over-year)
   - Soporte multi-país (no solo USA)
+  - Gráficos interactivos en Tab 1 (treemap de market share)
+  - Exportar reporte PDF desde el dashboard
