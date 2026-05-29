@@ -15,6 +15,7 @@ El output principal es una tabla con:
 - **FASE 2** ✅ Score ISE, variante actor, pipeline orquestado, validación, multi-producto
 - **FASE 3** ✅ Base de datos DuckDB ✅ — API FastAPI ✅ — Pipeline automatizado ✅
 - **FASE 4** ✅ Dashboard Streamlit ✅ — Interpretabilidad económica ✅ — Documentación publicable ✅
+- **FASE 5** ✅ Dashboard profesional multi-tab ✅ — Agregaciones de mercado ✅ — Dark theme ✅
 
 ## Estructura del proyecto
 
@@ -23,11 +24,12 @@ src/
   metrics.py       # Cálculo de métricas (variación, volatilidad, elasticidad, shock, ISE)
   pipeline.py      # run_pipeline() y run_pipeline_multi() — orquestación del flujo
   validation.py    # validate_dataframe() — validación de input antes del pipeline
-  database.py      # save_results() y load_results() — persistencia en DuckDB
+  database.py      # save_results() / load_results() / load_aggregation() — persistencia en DuckDB
   api.py           # FastAPI — endpoints GET /results, /results/{hs_code}, /results/{hs_code}/actores
   updater.py       # run_pipeline_auto() — detecta archivos nuevos y actualiza la DB
-  dashboard.py     # Streamlit — visualización ISE, filtros por producto/actor/período, gráfico + tabla
+  dashboard.py     # Streamlit 4 tabs — Competidores / Precios y Rutas / Evolución / Alertas ISE
   narratives.py    # generate_narrative(row) y add_narratives(df) — texto automático por fila ISE
+  aggregations.py  # 5 funciones de mercado + run_aggregations() — trabaja sobre df_all.parquet
   io.py            # Conversión XLSX → Parquet
 tests/
   test_metrics.py
@@ -37,18 +39,23 @@ tests/
   test_api.py
   test_updater.py
   test_narratives.py
+  test_aggregations.py  # 12 tests para las 5 funciones de agregación
 data/
   raw/             # Excel originales (ignorados por git)
   interim/         # df_all.parquet (ignorado por git)
   processed/       # econolens.duckdb, CSVs de output (ignorados por git)
-run.py             # Script de entrada principal
+.streamlit/
+  config.toml      # Dark theme: #0f172a fondo, #38bdf8 acento
+run.py             # Script de entrada: pipeline ISE + 5 tablas de agregación → DuckDB
 ```
 
 ## Datos
 
-- Fuente: importaciones Perú desde USA 2025 (SUNAT)
-- Columnas clave del raw: `PARTIDA ARANCELARIA`, `IMPORTADOR`, `US$ FOB`, `CANTIDAD`, `UNIDAD DE MEDIDA`, `DÍA`, `MES`, `AÑO`
-- `PARTIDA ARANCELARIA` viene como Int64 en el parquet — se castea a String antes del pipeline
+- Fuente: importaciones Perú desde USA 2025 (SUNAT) — 1.2M filas, 64 columnas
+- Columnas usadas por el pipeline ISE: `PARTIDA ARANCELARIA`, `IMPORTADOR`, `US$ FOB`, `CANTIDAD`, `UNIDAD DE MEDIDA`, `DÍA`, `MES`, `AÑO`
+- Columnas adicionales usadas por aggregations.py: `ADUANA` (17 puertos de ingreso), `PAÍS DE ADQUISICIÓN` (87 países)
+- `PARTIDA ARANCELARIA` viene como Int64 en el parquet — se castea a String antes del pipeline **y antes de run_aggregations()**
+- Otras columnas disponibles relevantes: `VÍA DE TRANSPORTE`, `PUERTO DE EMBARQUE`, `PESO NETO`, `US$ CIF`, `INCOTERM`, `CANAL`
 
 ## Reglas de código
 

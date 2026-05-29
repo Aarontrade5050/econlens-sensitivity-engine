@@ -3,11 +3,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import streamlit as st
-import plotly.express as px
 import polars as pl
+import plotly.express as px
+import streamlit as st
 
-from src.database import load_results
+from src.database import load_aggregation, load_results
 from src.narratives import add_narratives
 
 DB_PATH = Path("data/processed/econolens.duckdb")
@@ -18,110 +18,229 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("📊 EconoLens — Motor de Sensibilidad Económica")
-st.caption("Importaciones Perú–USA 2025 | Fuente: SUNAT")
+st.title("EconoLens — Motor de Inteligencia Arancelaria")
+st.caption("Análisis de Importaciones Perú–USA 2025 | Fuente: SUNAT")
 
+# -----------------------------------------------------------------------
+# Carga de datos (cacheado)
+# -----------------------------------------------------------------------
 
 @st.cache_data
-def get_all_data():
+def get_ise_data() -> pl.DataFrame:
     return load_results(DB_PATH)
 
 
-df_all = get_all_data()
+@st.cache_data
+def get_all_aggregations() -> dict[str, pl.DataFrame]:
+    tables = ["market_share", "price_by_country", "price_by_route", "price_spread", "entities_over_time"]
+    return {t: load_aggregation(DB_PATH, t) for t in tables}
 
-if df_all is None or df_all.is_empty():
+
+df_ise = get_ise_data()
+
+if df_ise is None or df_ise.is_empty():
     st.error("No hay datos en la base de datos. Corre primero `python run.py`.")
     st.stop()
 
-has_actor = "actor" in df_all.columns
+aggs = get_all_aggregations()
 
-# --- sidebar: filtros ---
-with st.sidebar:
-    st.header("🔍 Filtros")
+# -----------------------------------------------------------------------
+# Filtro principal: selector de partida arancelaria
+# -----------------------------------------------------------------------
 
-    hs_options = sorted(df_all["hs_code"].unique().to_list())
-    hs_selected = st.multiselect("Producto (HS Code)", hs_options, default=[])
-
-    actor_options = sorted(df_all["actor"].unique().to_list()) if has_actor else []
-    actor_selected = st.multiselect("Importador", actor_options, default=[])
-
-    periodos = sorted(df_all["periodo"].unique().to_list())
-    desde = st.selectbox("Desde", periodos, index=0)
-    hasta = st.selectbox("Hasta", periodos, index=len(periodos) - 1)
-
-# --- aplicar filtros en memoria ---
-df = df_all.filter(
-    (pl.col("periodo") >= desde) & (pl.col("periodo") <= hasta)
-)
-
-if hs_selected:
-    df = df.filter(pl.col("hs_code").is_in(hs_selected))
-if actor_selected and has_actor:
-    df = df.filter(pl.col("actor").is_in(actor_selected))
-
-# --- métricas resumen ---
-ise_counts = (
-    df.group_by("ise_nivel")
-    .agg(pl.len().alias("n"))
-    .to_pandas()
-    .set_index("ise_nivel")["n"]
-)
-
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Total registros", df.shape[0])
-col2.metric("🔴 Alto", int(ise_counts.get("Alto", 0)))
-col3.metric("🟡 Medio", int(ise_counts.get("Medio", 0)))
-col4.metric("🟢 Bajo", int(ise_counts.get("Bajo", 0)))
+hs_options = sorted(df_ise["hs_code"].unique().to_list())
+selected_hs = st.selectbox("**Partida Arancelaria**", hs_options)
 
 st.divider()
 
-# --- preparar datos ordenados una sola vez (con narrativas) ---
-df_sorted = add_narratives(df.sort("periodo"))
-df_pd = df_sorted.to_pandas()
+# Datos filtrados para la partida seleccionada
+df_hs = df_ise.filter(pl.col("hs_code") == selected_hs)
 
-# --- gráfico ISE en el tiempo ---
-st.subheader("📈 ISE en el tiempo")
+def _filter(table: str) -> pl.DataFrame:
+    df = aggs.get(table, pl.DataFrame())
+    if df.is_empty() or "hs_code" not in df.columns:
+        return pl.DataFrame()
+    return df.filter(pl.col("hs_code") == selected_hs)
 
-if df.is_empty():
-    st.info("Selecciona filtros para ver el gráfico.")
-else:
-    group_col = "actor" if has_actor and not df["actor"].is_null().all() else "hs_code"
-    fig = px.line(
-        df_pd,
-        x="periodo",
-        y="ise_score",
-        color=group_col,
-        markers=True,
-        labels={"ise_score": "ISE Score", "periodo": "Período", group_col: group_col.capitalize()},
-    )
-    fig.update_layout(yaxis_range=[0, 100], height=400)
-    st.plotly_chart(fig, use_container_width=True)
 
-st.divider()
+ms_df = _filter("market_share")
+country_df = _filter("price_by_country")
+route_df = _filter("price_by_route")
+spread_df = _filter("price_spread")
+entities_df = _filter("entities_over_time")
 
-# --- tabla de resultados ---
-st.subheader("📋 Tabla de resultados")
+# -----------------------------------------------------------------------
+# 4 Pestañas
+# -----------------------------------------------------------------------
 
-display_cols = [c for c in [
-    "periodo", "hs_code", "actor", "volumen", "precio",
-    "var_pct_volumen_mensual", "var_pct_precio_mensual",
-    "volatilidad_precio_6m", "elasticidad_simple",
-    "shock_compuesto_flag", "ise_score", "ise_nivel", "narrativa",
-] if c in df_sorted.columns]
+tab1, tab2, tab3, tab4 = st.tabs([
+    "1. Competidores e Importadores",
+    "2. Precios, Rutas y Adquisición",
+    "3. Evolución Temporal",
+    "4. Alertas ISE",
+])
 
-st.dataframe(
-    df_pd[display_cols],
-    use_container_width=True,
-    height=400,
-)
+# ===========================
+# TAB 1 — Competidores
+# ===========================
+with tab1:
+    if ms_df.is_empty():
+        st.info("No hay datos de market share. Ejecuta `python run.py` para generarlos.")
+    else:
+        ms_sorted = ms_df.sort("volumen_total", descending=True)
+        top_row = ms_sorted.row(0, named=True)
+        total_vol = ms_sorted["volumen_total"].sum()
+        top3_pct = ms_sorted.head(3)["participacion_pct"].sum()
 
-# --- panel de narrativas destacadas ---
-st.divider()
-st.subheader("🗞️ Eventos destacados")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Importador Líder", top_row["actor"])
+        c2.metric("Volumen Total Registrado", f"{total_vol:,.0f} kg")
+        c3.metric("Concentración Top 3", f"{top3_pct:.1f}%")
 
-alto = df_sorted.filter(pl.col("ise_nivel") == "Alto")
-if alto.is_empty():
-    st.info("No hay registros con ISE Alto en la selección actual.")
-else:
-    for row in alto.sort("ise_score", descending=True).to_dicts():
-        st.warning(row["narrativa"])
+        st.subheader("Cuota de Mercado por Importador")
+
+        header = st.columns([4, 2, 1, 3])
+        header[0].markdown("**Importador**")
+        header[1].markdown("**Volumen Acum.**")
+        header[2].markdown("**%**")
+        header[3].markdown("**Participación**")
+        st.divider()
+
+        for row in ms_sorted.to_dicts():
+            cols = st.columns([4, 2, 1, 3])
+            cols[0].write(row["actor"])
+            cols[1].write(f"{row['volumen_total']:,.0f} kg")
+            cols[2].write(f"{row['participacion_pct']:.1f}%")
+            cols[3].progress(min(row["participacion_pct"] / 100, 1.0))
+
+# ===========================
+# TAB 2 — Precios y Rutas
+# ===========================
+with tab2:
+    col_left, col_right = st.columns(2)
+
+    with col_left:
+        st.subheader("Precio por País de Adquisición")
+        if country_df.is_empty():
+            st.info("Sin datos. Ejecuta `python run.py`.")
+        else:
+            display = (
+                country_df
+                .sort("volumen_total", descending=True)
+                .select(["pais", "volumen_total", "precio_promedio"])
+                .rename({"pais": "País", "volumen_total": "Volumen (kg)", "precio_promedio": "Precio FOB USD/kg"})
+            )
+            st.dataframe(display.to_pandas(), use_container_width=True, hide_index=True)
+
+    with col_right:
+        st.subheader("Precio por Aduana de Ingreso")
+        if route_df.is_empty():
+            st.info("Sin datos. Ejecuta `python run.py`.")
+        else:
+            display = (
+                route_df
+                .sort("volumen_total", descending=True)
+                .select(["aduana", "volumen_total", "precio_promedio"])
+                .rename({"aduana": "Aduana", "volumen_total": "Volumen (kg)", "precio_promedio": "Precio FOB USD/kg"})
+            )
+            st.dataframe(display.to_pandas(), use_container_width=True, hide_index=True)
+
+    st.subheader("Spread de Precios Mín/Máx por Importador")
+    if spread_df.is_empty():
+        st.info("Sin datos. Ejecuta `python run.py`.")
+    else:
+        display = (
+            spread_df
+            .sort("spread_pct", descending=True)
+            .select(["actor", "precio_min", "precio_max", "spread_pct"])
+            .rename({
+                "actor": "Importador",
+                "precio_min": "Precio Mín (USD/kg)",
+                "precio_max": "Precio Máx (USD/kg)",
+                "spread_pct": "Spread (%)",
+            })
+        )
+        st.dataframe(display.to_pandas(), use_container_width=True, hide_index=True)
+
+# ===========================
+# TAB 3 — Evolución Temporal
+# ===========================
+with tab3:
+    col_left, col_right = st.columns(2)
+
+    with col_left:
+        st.subheader("Empresas Activas por Período")
+        if entities_df.is_empty():
+            st.info("Sin datos. Ejecuta `python run.py`.")
+        else:
+            ent_sorted = entities_df.sort("periodo")
+            prev = ent_sorted["n_actores"].shift(1)
+            curr = ent_sorted["n_actores"]
+            ent_with_trend = ent_sorted.with_columns(
+                pl.when(curr > prev).then(pl.lit("▲ Expansión"))
+                .when(curr < prev).then(pl.lit("▼ Consolidación"))
+                .otherwise(pl.lit("— Estable"))
+                .alias("Tendencia")
+            ).rename({"periodo": "Mes", "n_actores": "Empresas Activas"}).select(
+                ["Mes", "Empresas Activas", "Tendencia"]
+            )
+            st.dataframe(ent_with_trend.to_pandas(), use_container_width=True, hide_index=True)
+
+    with col_right:
+        st.subheader("Evolución de Volumen y Precio")
+        if df_hs.is_empty():
+            st.info("Sin datos para esta partida.")
+        else:
+            vol_price = (
+                df_hs.group_by("periodo")
+                .agg([
+                    pl.col("volumen").sum().alias("Volumen Total (kg)"),
+                    (
+                        (pl.col("precio") * pl.col("volumen")).sum()
+                        / pl.col("volumen").sum()
+                    ).round(4).alias("Precio Ponderado (USD/kg)"),
+                ])
+                .sort("periodo")
+            )
+            fig = px.line(
+                vol_price.to_pandas(),
+                x="periodo",
+                y="Volumen Total (kg)",
+                markers=True,
+                labels={"periodo": "Período"},
+            )
+            fig.update_layout(height=250)
+            st.plotly_chart(fig, use_container_width=True)
+
+            fig2 = px.line(
+                vol_price.to_pandas(),
+                x="periodo",
+                y="Precio Ponderado (USD/kg)",
+                markers=True,
+                color_discrete_sequence=["#f59e0b"],
+                labels={"periodo": "Período"},
+            )
+            fig2.update_layout(height=250)
+            st.plotly_chart(fig2, use_container_width=True)
+
+# ===========================
+# TAB 4 — Alertas ISE
+# ===========================
+with tab4:
+    st.subheader("Alertas de Shocks Económicos e Índice de Sensibilidad (ISE)")
+    st.caption("Detección automática de movimientos fuera de lo común (shocks de volumen o quiebres de precios).")
+
+    shocks = df_hs.filter(pl.col("shock_compuesto_flag") == 1)
+
+    if shocks.is_empty():
+        st.success("No se detectaron shocks para esta partida en el período analizado.")
+    else:
+        shocks_with_narratives = add_narratives(shocks.sort("ise_score", descending=True))
+        for row in shocks_with_narratives.to_dicts():
+            periodo_str = str(row["periodo"])[:7]
+            actor = row.get("actor", "—")
+            ise = row["ise_score"]
+            narrativa = row.get("narrativa", "")
+            st.error(
+                f"**{actor}** — {periodo_str} | ISE Score: {ise:.1f}  \n{narrativa}"
+            )

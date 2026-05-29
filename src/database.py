@@ -21,6 +21,26 @@ def save_results(
     con.close()
 
 
+def load_aggregation(
+    db_path,
+    table: str,
+    hs_code: str | None = None,
+) -> pl.DataFrame:
+    """Load an aggregation table from DuckDB, optionally filtered by hs_code.
+
+    Returns an empty DataFrame if the table does not exist yet.
+    """
+    con = duckdb.connect(str(db_path))
+    where = f"WHERE hs_code = '{hs_code}'" if hs_code else ""
+    try:
+        result = con.execute(f"SELECT * FROM {table} {where}").pl()
+    except duckdb.CatalogException:
+        result = pl.DataFrame()
+    finally:
+        con.close()
+    return result
+
+
 def load_results(
     db_path,
     table: str = "sensitivity_results",
