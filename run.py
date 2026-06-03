@@ -2,11 +2,15 @@ import polars as pl
 from src.pipeline import run_pipeline_multi
 from src.database import load_results
 from src.aggregations import run_aggregations
+from src.cleaning import clean_raw_df
 
 DB_PATH = "data/processed/econolens.duckdb"
 
 df = pl.read_parquet("data/interim/df_all.parquet")
 df = df.with_columns(pl.col("PARTIDA ARANCELARIA").cast(pl.String))
+
+# --- Limpieza de nombres y unidades (antes del pipeline) ---
+df = clean_raw_df(df)
 
 # --- Pipeline ISE ---
 result = run_pipeline_multi(
