@@ -16,6 +16,8 @@ El output principal es una tabla con:
 - **FASE 3** ✅ Base de datos DuckDB ✅ — API FastAPI ✅ — Pipeline automatizado ✅
 - **FASE 4** ✅ Dashboard Streamlit ✅ — Interpretabilidad económica ✅ — Documentación publicable ✅
 - **FASE 5** ✅ Dashboard profesional multi-tab ✅ — Agregaciones de mercado ✅ — Dark theme ✅
+- **FASE 6** ✅ Capa de limpieza liviana ✅ — Normalización de nombres (top 80% volumen) ✅
+- **FASE 7** 🔜 Dimensión arancelaria — tabla `dim_partida` con jerarquía HS (Sección → Capítulo → Partida 4d → Subpartida 6d → Código 10d)
 
 ## Estructura del proyecto
 
@@ -30,6 +32,7 @@ src/
   dashboard.py     # Streamlit 4 tabs — Competidores / Precios y Rutas / Evolución / Alertas ISE
   narratives.py    # generate_narrative(row) y add_narratives(df) — texto automático por fila ISE
   aggregations.py  # 5 funciones de mercado + run_aggregations() — trabaja sobre df_all.parquet
+  cleaning.py      # clean_raw_df() — normalización vectorizada de IMPORTADOR y UNIDAD DE MEDIDA
   io.py            # Conversión XLSX → Parquet
 tests/
   test_metrics.py
@@ -40,13 +43,14 @@ tests/
   test_updater.py
   test_narratives.py
   test_aggregations.py  # 12 tests para las 5 funciones de agregación
+  test_cleaning.py      # 12 tests para clean_raw_df()
 data/
   raw/             # Excel originales (ignorados por git)
   interim/         # df_all.parquet (ignorado por git)
   processed/       # econolens.duckdb, CSVs de output (ignorados por git)
 .streamlit/
   config.toml      # Dark theme: #0f172a fondo, #38bdf8 acento
-run.py             # Script de entrada: pipeline ISE + 5 tablas de agregación → DuckDB
+run.py             # Script de entrada: limpieza → pipeline ISE → 5 tablas de agregación → DuckDB
 ```
 
 ## Datos

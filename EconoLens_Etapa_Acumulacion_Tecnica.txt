@@ -272,27 +272,78 @@ Tablas activas en econolens.duckdb:
   entities_over_time    — empresas activas por periodo
 
 ****************************************************************************************
-PROYECTO COMPLETADO – PLAN 18 MESES + FASE 5
+SESIÓN 2026-06-02 – TAREAS COMPLETADAS
 ****************************************************************************************
 
-Stack completo construido:
-  datos (SUNAT xlsx) → io → validación → métricas → pipeline → DuckDB → API → dashboard
+FASE 6 – CERRADA
 
-Módulos:
+[✔] Capa de limpieza liviana (src/cleaning.py)
+    - Diagnóstico del parquet raw: 7,584 importadores únicos
+        · 0 variantes por RUC (1 RUC = 1 nombre) — no hay duplicados reales
+        · 30 importadores cubren el 80% del volumen (Pareto)
+        · Problemas identificados: doble espacio (71), encoding ? (46), slash+truncado (2),
+          comillas (3), basura (1), unidades sucias ('U 3', '2U')
+    - Creado src/cleaning.py con clean_raw_df():
+        · Totalmente vectorizado en expresiones Polars — sin loops Python
+        · Strip + colapso de espacios múltiples
+        · Quita comillas externas (" y ')
+        · Split en '/' → toma nombre canónico (elimina aliases truncados)
+        · Encoding fixes: COMPA?IA → COMPAÑÍA, AN?NIMA → ANÓNIMA, VI?A → VIÑA
+        · Stray space fix: SUCURSA L → SUCURSAL
+        · Filtra garbage entries (e.g. '::::::') → None
+        · Normaliza UNIDAD DE MEDIDA: 'U 3' y '2U' → 'U'
+    - Resultado verificado: 2 de 30 actores top corregidos, 28 intactos
+        · COMPA?IA MOLINERA DEL CENTRO S.A./CIA. MOLINERA DEL CENTRO S
+          → COMPAÑÍA MOLINERA DEL CENTRO S.A.
+        · SOUTHERN PERU COPPER CORPORATION SUCURSA L DEL PERU
+          → SOUTHERN PERU COPPER CORPORATION SUCURSAL DEL PERU
+    - Integrado en run.py: limpieza se aplica ANTES del pipeline y aggregations
+    - 12 tests en tests/test_cleaning.py
+
+[✔] Dashboard mejorado (src/dashboard.py — ajuste visual)
+    - CSS global para métricas con bordes (#1e293b, #334155)
+    - ProgressColumn nativo de Streamlit en Tab 1 (reemplaza bucle for)
+    - Contenedores con border=True para secciones
+
+TOTAL TESTS: 119 – todos verdes
+
+****************************************************************************************
+PRÓXIMA SESIÓN – FASE 7
+****************************************************************************************
+
+FASE 7 – DIMENSIÓN ARANCELARIA (pendiente de diseño)
+
+    Objetivo: enriquecer PARTIDA ARANCELARIA con su jerarquía HS completa
+    para mostrar nombres descriptivos en el dashboard en lugar de códigos numéricos.
+
+    Estructura a integrar (fuente externa: tabla de nomenclatura HS):
+        Sección (romano)  →  Desc. Sección
+        Capítulo (2d)     →  Desc. Capítulo
+        Partida (4d)      →  Desc. Partida
+        Subpartida (6d)   →  Desc. Subpartida
+        Código (10d)      →  Descripción arancelaria completa  ← lo que tiene el raw
+
+    Preguntas de diseño pendientes:
+        - ¿Fuente del archivo de nomenclatura? (CSV/Excel propio o SUNAT oficial)
+        - ¿Cómo se relaciona con el código de 10 dígitos del raw?
+        - ¿Se guarda como tabla dim_partida en DuckDB o se usa como lookup en memoria?
+        - ¿Afecta el selector de partida del dashboard? (mostrar descripción, no solo código)
+
+****************************************************************************************
+ESTADO DEL STACK – POST FASE 6
+****************************************************************************************
+
+Pipeline de datos:
+  raw Excel → io → clean_raw_df() → validación → métricas ISE → DuckDB → dashboard
+
+Módulos activos:
+  src/cleaning.py      — clean_raw_df() vectorizado (FASE 6)
   src/metrics.py       — variación, volatilidad, elasticidad, shock, ISE
-  src/pipeline.py      — run_pipeline / run_pipeline_multi / db_path opcional
-  src/validation.py    — validate_dataframe con mensajes claros
-  src/database.py      — save_results / load_results / load_aggregation (DuckDB)
-  src/api.py           — FastAPI con 3 endpoints y dependency injection
+  src/pipeline.py      — run_pipeline / run_pipeline_multi
+  src/validation.py    — validate_dataframe
+  src/database.py      — save_results / load_results / load_aggregation
+  src/api.py           — FastAPI 3 endpoints
   src/updater.py       — pipeline automatizado con manifest JSON
-  src/dashboard.py     — Streamlit 4 tabs: Competidores / Precios / Evolución / Alertas
-  src/narratives.py    — generate_narrative / add_narratives (reglas, sin LLM)
+  src/dashboard.py     — Streamlit 4 tabs + CSS + ProgressColumn
+  src/narratives.py    — generate_narrative / add_narratives
   src/aggregations.py  — 5 funciones de mercado + run_aggregations()
-
-Para continuar el proyecto en futuras sesiones, posibles extensiones:
-  - Clasificación de actores por perfil de riesgo (clustering)
-  - Alertas automáticas cuando ISE supera umbral
-  - Comparación entre períodos (year-over-year)
-  - Soporte multi-país (no solo USA)
-  - Gráficos interactivos en Tab 1 (treemap de market share)
-  - Exportar reporte PDF desde el dashboard
