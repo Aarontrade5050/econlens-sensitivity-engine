@@ -2,7 +2,7 @@ import pytest
 import polars as pl
 from datetime import date
 
-from src.database import save_results, load_results
+from src.database import save_results, load_results, load_dim_partida
 
 
 def _make_results_df():
@@ -101,3 +101,44 @@ def test_load_with_date_range_filter(tmp_path):
     result = load_results(db, from_period="2025-01-01", to_period="2025-01-01")
     assert result.shape[0] == 2
     assert all(p == date(2025, 1, 1) for p in result["periodo"].to_list())
+
+
+# --- dim_partida ---
+
+def _make_dim_df() -> pl.DataFrame:
+    return pl.DataFrame({
+        "seccion": ["I", "I", "II"],
+        "desc_seccion": ["Animales vivos", "Animales vivos", "Productos del reino vegetal"],
+        "capitulo": ["01", "01", "06"],
+        "desc_capitulo": ["Animales vivos", "Animales vivos", "Plantas"],
+        "partida_4d": ["0101", "0101", "0601"],
+        "desc_partida": ["Caballos vivos", "Caballos vivos", "Bulbos"],
+        "subpartida_6d": ["010110", "010121", "060110"],
+        "desc_subpartida": ["De raza pura", "Caballos reproductores", "Bulbos"],
+    })
+
+
+def test_load_dim_partida_returns_empty_when_missing(tmp_path):
+    db = tmp_path / "empty.duckdb"
+    result = load_dim_partida(db)
+    assert isinstance(result, pl.DataFrame)
+    assert result.is_empty()
+
+
+def test_load_dim_partida_returns_full_table(tmp_path):
+    db = tmp_path / "test.duckdb"
+    dim = _make_dim_df()
+    save_results(dim, db, table="dim_partida")
+    result = load_dim_partida(db)
+    assert result.shape[0] == 3
+
+
+def test_load_dim_partida_has_expected_columns(tmp_path):
+    db = tmp_path / "test.duckdb"
+    save_results(_make_dim_df(), db, table="dim_partida")
+    result = load_dim_partida(db)
+    expected = {
+        "seccion", "desc_seccion", "capitulo", "desc_capitulo",
+        "partida_4d", "desc_partida", "subpartida_6d", "desc_subpartida",
+    }
+    assert expected.issubset(set(result.columns))

@@ -17,7 +17,7 @@ El output principal es una tabla con:
 - **FASE 4** ✅ Dashboard Streamlit ✅ — Interpretabilidad económica ✅ — Documentación publicable ✅
 - **FASE 5** ✅ Dashboard profesional multi-tab ✅ — Agregaciones de mercado ✅ — Dark theme ✅
 - **FASE 6** ✅ Capa de limpieza liviana ✅ — Normalización de nombres (top 80% volumen) ✅
-- **FASE 7** 🔜 Dimensión arancelaria — tabla `dim_partida` con jerarquía HS (Sección → Capítulo → Partida 4d → Subpartida 6d → Código 10d)
+- **FASE 7** ✅ Dimensión arancelaria — tabla `dim_partida` ✅ — Navegador en cascada 5 niveles en dashboard ✅
 
 ## Estructura del proyecto
 
@@ -26,7 +26,7 @@ src/
   metrics.py       # Cálculo de métricas (variación, volatilidad, elasticidad, shock, ISE)
   pipeline.py      # run_pipeline() y run_pipeline_multi() — orquestación del flujo
   validation.py    # validate_dataframe() — validación de input antes del pipeline
-  database.py      # save_results() / load_results() / load_aggregation() — persistencia en DuckDB
+  database.py      # save_results() / load_results() / load_aggregation() / load_dim_partida() — persistencia en DuckDB
   api.py           # FastAPI — endpoints GET /results, /results/{hs_code}, /results/{hs_code}/actores
   updater.py       # run_pipeline_auto() — detecta archivos nuevos y actualiza la DB
   dashboard.py     # Streamlit 4 tabs — Competidores / Precios y Rutas / Evolución / Alertas ISE
@@ -44,13 +44,14 @@ tests/
   test_narratives.py
   test_aggregations.py  # 12 tests para las 5 funciones de agregación
   test_cleaning.py      # 12 tests para clean_raw_df()
+  # test_database.py incluye 3 tests adicionales para load_dim_partida()
 data/
   raw/             # Excel originales (ignorados por git)
   interim/         # df_all.parquet (ignorado por git)
   processed/       # econolens.duckdb, CSVs de output (ignorados por git)
 .streamlit/
   config.toml      # Dark theme: #0f172a fondo, #38bdf8 acento
-run.py             # Script de entrada: limpieza → pipeline ISE → 5 tablas de agregación → DuckDB
+run.py             # Script de entrada: limpieza → pipeline ISE → 5 tablas de agregación → dim_partida → DuckDB
 ```
 
 ## Datos

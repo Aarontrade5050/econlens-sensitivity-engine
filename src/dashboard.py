@@ -7,7 +7,7 @@ import polars as pl
 import plotly.express as px
 import streamlit as st
 
-from src.database import load_aggregation, load_results
+from src.database import load_aggregation, load_dim_partida, load_results
 from src.narratives import add_narratives
 
 DB_PATH = Path("data/processed/econolens.duckdb")
@@ -47,6 +47,11 @@ def get_ise_data() -> pl.DataFrame:
 
 
 @st.cache_data
+def get_dim_partida() -> pl.DataFrame:
+    return load_dim_partida(DB_PATH)
+
+
+@st.cache_data
 def get_all_aggregations() -> dict[str, pl.DataFrame]:
     tables = ["market_share", "price_by_country", "price_by_route", "price_spread", "entities_over_time"]
     return {t: load_aggregation(DB_PATH, t) for t in tables}
@@ -61,11 +66,95 @@ if df_ise is None or df_ise.is_empty():
 aggs = get_all_aggregations()
 
 # -----------------------------------------------------------------------
-# Filtro principal: selector de partida arancelaria
+# Filtro principal: navegador arancelario en cascada (5 niveles)
 # -----------------------------------------------------------------------
+hs_available_10d = sorted(df_ise["hs_code"].unique().to_list())
+hs_available_6d = {h[:6] for h in hs_available_10d}
+
+dim_full = get_dim_partida()
+dim = (
+    dim_full.filter(pl.col("subpartida_6d").is_in(list(hs_available_6d)))
+    if not dim_full.is_empty()
+    else pl.DataFrame()
+)
+
 with st.container(border=True):
-    hs_options = sorted(df_ise["hs_code"].unique().to_list())
-    selected_hs = st.selectbox("**Partida Arancelaria Seleccionada**", hs_options)
+    if dim.is_empty():
+        # Fallback: selector simple si dim_partida aún no está en la DB
+        selected_hs = st.selectbox("**Partida Arancelaria**", hs_available_10d)
+    else:
+        st.markdown("**Navegador Arancelario HS**")
+        r1_l, r1_r = st.columns([2, 3])
+        r2_1, r2_2, r2_3 = st.columns(3)
+
+        # Nivel 1 — Sección
+        with r1_l:
+            sec_rows = (
+                dim.select(["seccion", "desc_seccion"]).unique().sort("seccion").to_dicts()
+            )
+            sec_map = {r["seccion"]: f"Sección {r['seccion']} — {r['desc_seccion']}" for r in sec_rows}
+            selected_seccion = st.selectbox(
+                "GRUPO RAÍZ: SECCIÓN",
+                options=list(sec_map.keys()),
+                format_func=lambda k, m=sec_map: m[k],
+            )
+
+        # Nivel 2 — Capítulo (filtrado por Sección)
+        with r1_r:
+            cap_rows = (
+                dim.filter(pl.col("seccion") == selected_seccion)
+                .select(["capitulo", "desc_capitulo"]).unique().sort("capitulo").to_dicts()
+            )
+            cap_map = {r["capitulo"]: f"{r['capitulo']} — {r['desc_capitulo']}" for r in cap_rows}
+            selected_cap = st.selectbox(
+                "NIVEL 1: CAPÍTULO",
+                options=list(cap_map.keys()),
+                format_func=lambda k, m=cap_map: m[k],
+            )
+
+        # Nivel 3 — Partida 4d (filtrada por Capítulo)
+        with r2_1:
+            par_rows = (
+                dim.filter(pl.col("capitulo") == selected_cap)
+                .select(["partida_4d", "desc_partida"]).unique().sort("partida_4d").to_dicts()
+            )
+            par_map = {r["partida_4d"]: f"{r['partida_4d']} — {r['desc_partida']}" for r in par_rows}
+            selected_partida = st.selectbox(
+                "NIVEL 2: PARTIDA (4D)",
+                options=list(par_map.keys()),
+                format_func=lambda k, m=par_map: m[k],
+            )
+
+        # Nivel 4 — Subpartida 6d (filtrada por Partida)
+        with r2_2:
+            sub_rows = (
+                dim.filter(pl.col("partida_4d") == selected_partida)
+                .select(["subpartida_6d", "desc_subpartida"]).unique().sort("subpartida_6d").to_dicts()
+            )
+            sub_map = {r["subpartida_6d"]: f"{r['subpartida_6d']} — {r['desc_subpartida']}" for r in sub_rows}
+            selected_sub = st.selectbox(
+                "NIVEL 3: SUBPARTIDA (6D)",
+                options=list(sub_map.keys()),
+                format_func=lambda k, m=sub_map: m[k],
+            )
+
+        # Nivel 5 — Código 10d (viene de df_ise filtrado por los primeros 6 dígitos)
+        with r2_3:
+            hs10_opts = [h for h in hs_available_10d if h[:6] == selected_sub]
+            if not hs10_opts:
+                st.warning("Sin datos ISE para esta subpartida.")
+                selected_hs = hs_available_10d[0]
+            else:
+                selected_hs = st.selectbox("NIVEL 4: CÓDIGO (10D)", options=hs10_opts)
+
+        # Breadcrumb
+        st.caption(
+            f"**Filtro Activo:** Sección {selected_seccion} "
+            f"→ Cap. {selected_cap} "
+            f"→ {selected_partida} "
+            f"→ {selected_sub} "
+            f"→ `{selected_hs}`"
+        )
 
 # Datos filtrados para la partida seleccionada
 df_hs = df_ise.filter(pl.col("hs_code") == selected_hs)

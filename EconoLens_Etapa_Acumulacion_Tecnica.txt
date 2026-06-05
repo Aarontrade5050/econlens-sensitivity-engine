@@ -308,26 +308,55 @@ FASE 6 – CERRADA
 TOTAL TESTS: 119 – todos verdes
 
 ****************************************************************************************
-PRÓXIMA SESIÓN – FASE 7
+SESIÓN 2026-06-04 – TAREAS COMPLETADAS
 ****************************************************************************************
 
-FASE 7 – DIMENSIÓN ARANCELARIA (pendiente de diseño)
+FASE 7 – CERRADA
 
-    Objetivo: enriquecer PARTIDA ARANCELARIA con su jerarquía HS completa
-    para mostrar nombres descriptivos en el dashboard en lugar de códigos numéricos.
+[✔] Dimensión arancelaria HS (dim_partida)
+    - Fuente: data/raw/HS2022_Jerarquia_Completa.xlsx (5,612 filas × 8 columnas)
+    - Columnas: Sección, Desc. Sección, Capítulo, Desc. Capítulo,
+                Partida (4d), Desc. Partida, Subpartida (6d), Desc. Subpartida
+    - Guardada en DuckDB como tabla dim_partida con nombres snake_case:
+        seccion, desc_seccion, capitulo, desc_capitulo,
+        partida_4d, desc_partida, subpartida_6d, desc_subpartida
+    - Cargada en run.py al final del pipeline (después de dim_partida tiene ~5.6K filas)
+    - Verificación: primeros 6 dígitos del código 10d → join con subpartida_6d = 99.9%
+      Solo 3 sin match: capítulo 98 (partidas nacionales especiales, no están en HS2022)
 
-    Estructura a integrar (fuente externa: tabla de nomenclatura HS):
-        Sección (romano)  →  Desc. Sección
-        Capítulo (2d)     →  Desc. Capítulo
-        Partida (4d)      →  Desc. Partida
-        Subpartida (6d)   →  Desc. Subpartida
-        Código (10d)      →  Descripción arancelaria completa  ← lo que tiene el raw
+[✔] Navegador arancelario en cascada (src/dashboard.py)
+    - Reemplaza el selector único por 5 niveles de navegación:
+        Nivel 0: Sección (I–XXI) — solo secciones con datos ISE
+        Nivel 1: Capítulo (2d) — filtrado por Sección seleccionada
+        Nivel 2: Partida (4d) — filtrado por Capítulo
+        Nivel 3: Subpartida (6d) — filtrada por Partida
+        Nivel 4: Código (10d) — viene de df_ise, filtrado por los primeros 6 dígitos
+    - Layout: fila superior 2 cols (Sección|Capítulo) + fila inferior 3 cols (P4d|Sub6d|C10d)
+    - Breadcrumb debajo: "Filtro Activo: Sección X → Cap. XX → XXXX → XXXXXX → XXXXXXXXXX"
+    - Fallback automático: si dim_partida no existe en DB, vuelve al selector simple
+    - dim cargado con @st.cache_data (una sola lectura de DB por sesión)
+    - Cierre de lambda seguro: format_func=lambda k, m=map_dict: m[k]
+      (captura el dict por valor, evita closure stale)
 
-    Preguntas de diseño pendientes:
-        - ¿Fuente del archivo de nomenclatura? (CSV/Excel propio o SUNAT oficial)
-        - ¿Cómo se relaciona con el código de 10 dígitos del raw?
-        - ¿Se guarda como tabla dim_partida en DuckDB o se usa como lookup en memoria?
-        - ¿Afecta el selector de partida del dashboard? (mostrar descripción, no solo código)
+[✔] load_dim_partida en src/database.py
+    - Retorna pl.DataFrame vacío si dim_partida no existe (no lanza excepción)
+    - Ordenado por seccion, capitulo, partida_4d, subpartida_6d
+
+[✔] Tests
+    - test_load_dim_partida_returns_empty_when_missing
+    - test_load_dim_partida_returns_full_table
+    - test_load_dim_partida_has_expected_columns
+
+TOTAL TESTS: 122 – todos verdes
+
+Tablas activas en econolens.duckdb:
+  sensitivity_results   — ISE por actor/periodo (pipeline principal)
+  market_share          — cuota de volumen por importador
+  price_by_country      — precio por país de adquisición
+  price_by_route        — precio por aduana de ingreso
+  price_spread          — spread min/max por importador
+  entities_over_time    — empresas activas por periodo
+  dim_partida           — jerarquía HS: Sección → Cap → Partida4d → Subpartida6d
 
 ****************************************************************************************
 ESTADO DEL STACK – POST FASE 6

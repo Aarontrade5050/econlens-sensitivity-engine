@@ -21,6 +21,21 @@ def save_results(
     con.close()
 
 
+def load_dim_partida(db_path) -> pl.DataFrame:
+    """Load the HS tariff hierarchy dimension table from DuckDB.
+
+    Returns an empty DataFrame if the table does not exist yet.
+    """
+    con = duckdb.connect(str(db_path))
+    try:
+        result = con.execute("SELECT * FROM dim_partida ORDER BY seccion, capitulo, partida_4d, subpartida_6d").pl()
+    except duckdb.CatalogException:
+        result = pl.DataFrame()
+    finally:
+        con.close()
+    return result
+
+
 def load_aggregation(
     db_path,
     table: str,

@@ -1,10 +1,11 @@
 import polars as pl
 from src.pipeline import run_pipeline_multi
-from src.database import load_results
+from src.database import load_results, save_results
 from src.aggregations import run_aggregations
 from src.cleaning import clean_raw_df
 
 DB_PATH = "data/processed/econolens.duckdb"
+HS_EXCEL = "data/raw/HS2022_Jerarquia_Completa.xlsx"
 
 df = pl.read_parquet("data/interim/df_all.parquet")
 df = df.with_columns(pl.col("PARTIDA ARANCELARIA").cast(pl.String))
@@ -43,3 +44,19 @@ print(f"  - price_by_country")
 print(f"  - price_by_route")
 print(f"  - price_spread")
 print(f"  - entities_over_time")
+
+# --- Dimensión arancelaria HS (dim_partida) ---
+print("\nCargando jerarquía arancelaria HS...")
+dim = pl.read_excel(HS_EXCEL)
+dim = dim.rename({
+    "Sección": "seccion",
+    "Desc. Sección": "desc_seccion",
+    "Capítulo": "capitulo",
+    "Desc. Capítulo": "desc_capitulo",
+    "Partida (4d)": "partida_4d",
+    "Desc. Partida": "desc_partida",
+    "Subpartida (6d)": "subpartida_6d",
+    "Desc. Subpartida": "desc_subpartida",
+})
+save_results(dim, DB_PATH, table="dim_partida", if_exists="replace")
+print(f"dim_partida guardada: {dim.shape[0]} filas × {dim.shape[1]} columnas.")
