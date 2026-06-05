@@ -45,18 +45,20 @@ src/
   metrics.py       # Cálculo de métricas: variación, volatilidad, elasticidad, shock, ISE
   pipeline.py      # run_pipeline() y run_pipeline_multi() — orquestación del flujo
   validation.py    # validate_dataframe() — validación de input antes del pipeline
-  database.py      # save_results() y load_results() — persistencia en DuckDB
+  database.py      # save_results() / load_results() / load_aggregation() / load_dim_partida()
   api.py           # FastAPI — endpoints REST para consultar resultados
   updater.py       # run_pipeline_auto() — detecta archivos nuevos y actualiza la DB
-  dashboard.py     # Streamlit — visualización ISE con filtros y gráficos
+  dashboard.py     # Streamlit 4 tabs + navegador arancelario en cascada (5 niveles)
   narratives.py    # generate_narrative() — texto automático por fila ISE
+  aggregations.py  # 5 funciones de mercado + run_aggregations() (market share, precios, rutas...)
+  cleaning.py      # clean_raw_df() — normalización vectorizada de importadores y unidades
   io.py            # Conversión XLSX → Parquet
-tests/             # 96 tests — pytest
+tests/             # 122 tests — pytest
 data/
-  raw/             # Excel originales de SUNAT (ignorados por git)
+  raw/             # Excel originales de SUNAT + HS2022_Jerarquia_Completa.xlsx (ignorados por git)
   interim/         # Parquets intermedios (ignorados por git)
   processed/       # econolens.duckdb y CSVs de output (ignorados por git)
-run.py             # Script de entrada principal
+run.py             # Script de entrada: limpieza → pipeline ISE → agregaciones → dim_partida → DuckDB
 ```
 
 ---
@@ -80,11 +82,15 @@ streamlit run src/dashboard.py
 ```
 
 Abre `http://localhost:8501` en el navegador. El dashboard incluye:
-- Filtros por producto (HS Code), importador y rango de fechas
-- Métricas resumen: total de registros y conteo por nivel ISE
-- Gráfico de ISE en el tiempo por actor o producto
-- Tabla de resultados con columna de narrativa automática
-- Panel de **Eventos destacados** con los registros ISE Alto
+
+**Navegador arancelario en cascada** (parte superior, 5 niveles):
+Sección → Capítulo → Partida 4d → Subpartida 6d → Código 10d
+
+**4 pestañas de análisis:**
+- **Competidores e Importadores** — cuota de mercado, volumen y participación por actor
+- **Precios, Rutas y Adquisición** — precio FOB por país de origen y aduana de ingreso
+- **Evolución Temporal** — empresas activas por período, volumen y precio en el tiempo
+- **Alertas ISE** — shocks detectados con narrativa automática y severidad (Crítico/Alto/Moderado)
 
 ### 3. API REST
 
@@ -144,17 +150,19 @@ run_pipeline_auto(
 pytest -v
 ```
 
-96 tests distribuidos en:
+122 tests distribuidos en:
 
 | Archivo | Tests | Cubre |
 |---------|-------|-------|
 | `test_metrics.py` | 30 | Cálculo de métricas |
 | `test_pipeline.py` | 22 | Orquestación del flujo |
 | `test_validation.py` | 4 | Validación de input |
-| `test_database.py` | 9 | Persistencia DuckDB |
+| `test_database.py` | 12 | Persistencia DuckDB + load_dim_partida |
 | `test_api.py` | 10 | Endpoints FastAPI |
 | `test_updater.py` | 9 | Pipeline automatizado |
 | `test_narratives.py` | 18 | Generador de narrativas |
+| `test_aggregations.py` | 12 | 5 funciones de mercado |
+| `test_cleaning.py` | 12 | Normalización de importadores |
 
 ---
 
@@ -162,7 +170,11 @@ pytest -v
 
 **Polars sobre Pandas** — rendimiento significativamente mayor en datasets tabulares grandes; lazy evaluation donde aplica.
 
-**DuckDB como base de datos** — embebida, sin servidor, ideal para analítica local con SQL completo. Cero configuración.
+**DuckDB como base de datos** — embebida, sin servidor, ideal para analítica local con SQL completo. Cero configuración. Tablas activas: `sensitivity_results`, `market_share`, `price_by_country`, `price_by_route`, `price_spread`, `entities_over_time`, `dim_partida`.
+
+**dim_partida como dimensión HS** — jerarquía arancelaria (Sección → Capítulo → Partida 4d → Subpartida 6d) almacenada en DuckDB. El join con los códigos de 10 dígitos del raw se hace por los primeros 6 caracteres (cobertura 99.9%).
+
+**Limpieza vectorizada** — `clean_raw_df()` normaliza importadores y unidades mediante expresiones Polars puras, sin loops Python. Corrige encoding (`?` por Ñ/Ó), splits por `/`, espacios duplicados y variantes de unidad (`U 3`, `2U`).
 
 **FastAPI con dependency injection** — `get_db_path()` como dependencia inyectable permite sobrescribir la ruta de DB en tests sin modificar el código de producción.
 
@@ -178,7 +190,8 @@ pytest -v
 
 - **Fuente:** SUNAT — importaciones Perú desde USA 2025
 - **Formato raw:** Excel (.xlsx) con columnas `PARTIDA ARANCELARIA`, `IMPORTADOR`, `US$ FOB`, `CANTIDAD`, `UNIDAD DE MEDIDA`, `DÍA`, `MES`, `AÑO`
-- **Nota:** `PARTIDA ARANCELARIA` viene como Int64 en parquet — se castea a String antes del pipeline
+- **Nota:** `PARTIDA ARANCELARIA` viene como Int64 en parquet — se castea a String antes del pipeline y antes de las agregaciones
+- **Jerarquía HS:** `data/raw/HS2022_Jerarquia_Completa.xlsx` — 5,612 filas, cubre hasta subpartida 6d; join con el raw por primeros 6 dígitos del código 10d
 
 ---
 
@@ -188,7 +201,8 @@ pytest -v
 polars          # procesamiento de datos
 duckdb          # base de datos embebida
 pyarrow         # serialización parquet
-openpyxl        # lectura de Excel
+openpyxl        # lectura de Excel (Pandas)
+fastexcel       # lectura de Excel (Polars) — requerido para pl.read_excel()
 fastapi         # API REST
 uvicorn         # servidor ASGI
 httpx           # cliente HTTP para tests de FastAPI
