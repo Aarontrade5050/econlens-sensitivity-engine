@@ -359,20 +359,149 @@ Tablas activas en econolens.duckdb:
   dim_partida           — jerarquía HS: Sección → Cap → Partida4d → Subpartida6d
 
 ****************************************************************************************
-ESTADO DEL STACK – POST FASE 6
+ESTADO DEL STACK – POST FASE 7
 ****************************************************************************************
 
 Pipeline de datos:
-  raw Excel → io → clean_raw_df() → validación → métricas ISE → DuckDB → dashboard
+  raw Excel → io → clean_raw_df() → validación → métricas ISE → agregaciones → dim_partida → DuckDB → dashboard
 
 Módulos activos:
   src/cleaning.py      — clean_raw_df() vectorizado (FASE 6)
   src/metrics.py       — variación, volatilidad, elasticidad, shock, ISE
   src/pipeline.py      — run_pipeline / run_pipeline_multi
   src/validation.py    — validate_dataframe
-  src/database.py      — save_results / load_results / load_aggregation
+  src/database.py      — save_results / load_results / load_aggregation / load_dim_partida
   src/api.py           — FastAPI 3 endpoints
   src/updater.py       — pipeline automatizado con manifest JSON
-  src/dashboard.py     — Streamlit 4 tabs + CSS + ProgressColumn
+  src/dashboard.py     — Streamlit 4 tabs + navegador HS en cascada 5 niveles
   src/narratives.py    — generate_narrative / add_narratives
   src/aggregations.py  — 5 funciones de mercado + run_aggregations()
+
+Tablas activas en econolens.duckdb:
+  sensitivity_results   — ISE por actor/periodo (pipeline principal)
+  market_share          — cuota de volumen por importador
+  price_by_country      — precio por país de adquisición
+  price_by_route        — precio por aduana de ingreso
+  price_spread          — spread min/max por importador
+  entities_over_time    — empresas activas por periodo
+  dim_partida           — jerarquía HS: Sección → Cap → Partida4d → Subpartida6d
+
+TOTAL TESTS: 122 – todos verdes
+
+****************************************************************************************
+PRÓXIMA SESIÓN – FASE 7.5: CALIBRACIÓN ECONÓMICA DEL MOTOR (EconoLens v2.5)
+****************************************************************************************
+
+OBJETIVO DE LA FASE
+    El motor ISE actual aplica los mismos umbrales matemáticos a todos los productos.
+    Un cambio de +8% en el precio del trigo (commodity) es una señal crítica; el mismo
+    cambio en el precio de un auto (bien duradero) es ruido normal. Esta fase adapta
+    el motor para que "piense" según el tipo económico del producto.
+
+    Resultado esperado:
+    - Nueva columna `arquetipo_economico` en sensitivity_results de DuckDB.
+    - Umbrales de shock y alertas ISE variables según el arquetipo.
+    - Precio unitario calculado por unidad física (U) para bienes duraderos, no por kg.
+    - 128 tests verdes (6 tests nuevos en test_arquetipos.py).
+
+MAPA DE LA TAREA
+    [S1] src/arquetipos.py         — clasificador de arquetipos (NUEVO)
+    [S2] src/cleaning.py           — guardián de unidades (MODIFICAR)
+    [S3] src/metrics.py            — umbrales dinámicos por arquetipo (MODIFICAR)
+    [S4] tests/test_arquetipos.py  — cobertura mínima 6 tests (NUEVO)
+
+---
+
+SECCIÓN 1 — CLASIFICADOR DE ARQUETIPOS (src/arquetipos.py)
+---------------------------------------------------------------------------
+Implementar: clasificar_arquetipo(df: pl.DataFrame, hs_col: str) -> pl.DataFrame
+
+Lógica de mapeo por los primeros 2 dígitos del código arancelario (capítulo):
+
+    COMMODITY     → Capítulos: 10, 11 (Cereales/Molinería), 25, 26, 27 (Combustibles/Minerales)
+    BIEN_DURADERO → Capítulos: 84 (Maquinaria), 85 (Electrónicos), 87 (Vehículos/Autos)
+    PERECEDERO    → Capítulos: 02 (Carnes), 04 (Lácteos), 07 (Hortalizas), 08 (Frutas/Paltas)
+    ESTANDAR      → Cualquier otro capítulo (consumo liviano, textiles, misceláneos)
+
+Notas de implementación:
+    - Extraer capítulo: pl.col(hs_col).str.slice(0, 2)
+    - Usar pl.when(...).then(...).otherwise(...) encadenado — sin loops Python
+    - Agregar columna "arquetipo_economico" al df (no reemplazar columnas existentes)
+
+---
+
+SECCIÓN 2 — GUARDIÁN DE UNIDADES (src/cleaning.py)
+---------------------------------------------------------------------------
+Modificar: clean_raw_df() para agregar lógica de precio unitario condicional.
+
+    Regla crítica:
+        Si arquetipo == "BIEN_DURADERO" Y unidad == "U":
+            precio_unitario = US$ FOB / CANTIDAD  (precio por unidad física)
+        Caso contrario (fallback):
+            precio_unitario = US$ FOB / PESO NETO KG  (estándar actual del motor)
+
+    Motivación:
+        Los autos llegan en lotes por barco (BIEN_DURADERO, unidad U).
+        Calcular USD/kg para un auto es matemáticamente correcto pero económicamente
+        absurdo. El precio por unidad física es la métrica relevante para ese arquetipo.
+
+    Notas de implementación:
+        - La columna de peso en el raw se llama "PESO NETO" (revisar nombre exacto en parquet)
+        - Esta lógica puede ir como columna derivada en cleaning o en pipeline.py
+        - NO romper el comportamiento actual para arquetipos COMMODITY / PERECEDERO / ESTANDAR
+
+---
+
+SECCIÓN 3 — UMBRALES DINÁMICOS DEL ISE (src/metrics.py + src/narratives.py)
+---------------------------------------------------------------------------
+Modificar: add_shock_flag() (y funciones relacionadas) para aceptar umbrales por arquetipo.
+
+Matriz de umbrales a implementar:
+
+    Arquetipo       | Alerta precio | Alerta volumen | Comparación temporal
+    --------------- | ------------- | -------------- | --------------------
+    COMMODITY       |    ±5%        |    ±15%        | MoM (mes a mes)
+    BIEN_DURADERO   |    ±15%       |    ±80%        | MoM (arribo por lotes)
+    PERECEDERO      |    ±10%       |    ±25%        | YoY (mismo mes año anterior)
+    ESTANDAR        |    ±10%       |    ±20%        | MoM (comportamiento actual)
+
+    Notas de implementación:
+        - PERECEDERO usa comparación YoY para evitar falsas alarmas por estacionalidad
+          (fin de cosecha de paltas, por ejemplo)
+        - Los umbrales actuales hardcodeados en add_shock_flag() son equivalentes a
+          los del arquetipo ESTANDAR — la refactorización no debe romper el comportamiento
+          para casos sin arquetipo asignado
+        - Los umbrales pueden pasarse como parámetro (dict) a add_shock_flag() para
+          mantener testabilidad
+        - narratives.py puede leer el arquetipo de la fila para personalizar el texto
+
+---
+
+SECCIÓN 4 — TESTS (tests/test_arquetipos.py)
+---------------------------------------------------------------------------
+Tests mínimos requeridos (6):
+
+    1. Que el capítulo "87" (código tipo "8703XXXXXX") clasifique como BIEN_DURADERO
+    2. Que el capítulo "10" (código tipo "1001XXXXXX") clasifique como COMMODITY
+    3. Que el capítulo "04" (código tipo "0401XXXXXX") clasifique como PERECEDERO
+    4. Que cualquier otro capítulo clasifique como ESTANDAR
+    5. Que BIEN_DURADERO + unidad "U" calcule precio por unidad física (no por kg)
+    6. Que el fallback por peso neto se active si la unidad no es "U"
+
+    Objetivo final: pytest muestra 128 tests verdes (122 existentes + 6 nuevos)
+
+---
+
+CRITERIOS DE ACEPTACIÓN (checklist al cerrar la fase)
+    [ ] python run.py ejecuta de extremo a extremo sin errores
+    [ ] econolens.duckdb contiene columna "arquetipo_economico" en sensitivity_results
+    [ ] pytest -v → 128 tests verdes, 0 rojos
+    [ ] El dashboard muestra el arquetipo en la vista de Alertas ISE (opcional, si da tiempo)
+
+ARCHIVOS A TOCAR
+    CREAR:   src/arquetipos.py
+    CREAR:   tests/test_arquetipos.py
+    MODIFICAR: src/cleaning.py
+    MODIFICAR: src/metrics.py
+    MODIFICAR: src/narratives.py   (opcional, para personalizar textos por arquetipo)
+    MODIFICAR: run.py              (llamar clasificar_arquetipo() antes del pipeline ISE)
