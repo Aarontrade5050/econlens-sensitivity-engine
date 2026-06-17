@@ -3,6 +3,35 @@
 import polars as pl
 
 
+def add_unit_adjusted_quantity(
+    df: pl.DataFrame,
+    archetype_col: str = "arquetipo_economico",
+    unit_col: str = "UNIDAD DE MEDIDA",
+    quantity_col: str = "CANTIDAD",
+    peso_col: str = "PESO NETO",
+) -> pl.DataFrame:
+    """Add 'cantidad_ajustada' using the most economically meaningful denominator.
+
+    Rule:
+        BIEN_DURADERO + unit 'U'  →  CANTIDAD  (price per physical unit, e.g. per vehicle)
+        all other cases           →  PESO NETO (price per kg — standard denominator)
+
+    This prevents meaningless USD/kg prices for durable goods (e.g. cars) while
+    keeping the existing behaviour for commodities and standard goods.
+
+    Returns:
+        df with an additional 'cantidad_ajustada' column.
+    """
+    return df.with_columns(
+        pl.when(
+            (pl.col(archetype_col) == "BIEN_DURADERO") & (pl.col(unit_col) == "U")
+        )
+        .then(pl.col(quantity_col))
+        .otherwise(pl.col(peso_col))
+        .alias("cantidad_ajustada")
+    )
+
+
 def _clean_name_expr(col: pl.Expr) -> pl.Expr:
     """Vectorized Polars expression to normalize a company name.
 

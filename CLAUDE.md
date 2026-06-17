@@ -18,6 +18,7 @@ El output principal es una tabla con:
 - **FASE 5** ✅ Dashboard profesional multi-tab ✅ — Agregaciones de mercado ✅ — Dark theme ✅
 - **FASE 6** ✅ Capa de limpieza liviana ✅ — Normalización de nombres (top 80% volumen) ✅
 - **FASE 7** ✅ Dimensión arancelaria — tabla `dim_partida` ✅ — Navegador en cascada 5 niveles en dashboard ✅
+- **FASE 7.5** ✅ Arquetipos económicos ✅ — Umbrales dinámicos ISE por producto ✅ — Guardián de unidades (BIEN_DURADERO → USD/unidad) ✅
 
 ## Estructura del proyecto
 
@@ -32,7 +33,8 @@ src/
   dashboard.py     # Streamlit 4 tabs — Competidores / Precios y Rutas / Evolución / Alertas ISE
   narratives.py    # generate_narrative(row) y add_narratives(df) — texto automático por fila ISE
   aggregations.py  # 5 funciones de mercado + run_aggregations() — trabaja sobre df_all.parquet
-  cleaning.py      # clean_raw_df() — normalización vectorizada de IMPORTADOR y UNIDAD DE MEDIDA
+  cleaning.py      # clean_raw_df() / add_unit_adjusted_quantity() — normalización y guardián de unidades
+  arquetipos.py    # clasificar_arquetipo() / get_archetype() / ARCHETYPE_THRESHOLDS — arquetipos por capítulo HS
   io.py            # Conversión XLSX → Parquet
 tests/
   test_metrics.py
@@ -45,13 +47,14 @@ tests/
   test_aggregations.py  # 12 tests para las 5 funciones de agregación
   test_cleaning.py      # 12 tests para clean_raw_df()
   # test_database.py incluye 3 tests adicionales para load_dim_partida()
+  test_arquetipos.py    # 6 tests para clasificar_arquetipo() y add_unit_adjusted_quantity()
 data/
   raw/             # Excel originales (ignorados por git)
   interim/         # df_all.parquet (ignorado por git)
   processed/       # econolens.duckdb, CSVs de output (ignorados por git)
 .streamlit/
   config.toml      # Dark theme: #0f172a fondo, #38bdf8 acento
-run.py             # Script de entrada: limpieza → pipeline ISE → 5 tablas de agregación → dim_partida → DuckDB
+run.py             # Script de entrada: limpieza → arquetipos → pipeline ISE → agregaciones → dim_partida → DuckDB
 ```
 
 ## Datos

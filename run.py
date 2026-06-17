@@ -2,7 +2,8 @@ import polars as pl
 from src.pipeline import run_pipeline_multi
 from src.database import load_results, save_results
 from src.aggregations import run_aggregations
-from src.cleaning import clean_raw_df
+from src.arquetipos import clasificar_arquetipo
+from src.cleaning import clean_raw_df, add_unit_adjusted_quantity
 
 DB_PATH = "data/processed/econolens.duckdb"
 HS_EXCEL = "data/raw/HS2022_Jerarquia_Completa.xlsx"
@@ -13,6 +14,10 @@ df = df.with_columns(pl.col("PARTIDA ARANCELARIA").cast(pl.String))
 # --- Limpieza de nombres y unidades (antes del pipeline) ---
 df = clean_raw_df(df)
 
+# --- Clasificación de arquetipos + guardián de unidades (FASE 7.5) ---
+df = clasificar_arquetipo(df, hs_col="PARTIDA ARANCELARIA")
+df = add_unit_adjusted_quantity(df)
+
 # --- Pipeline ISE ---
 result = run_pipeline_multi(
     df,
@@ -20,7 +25,7 @@ result = run_pipeline_multi(
     hs_col="PARTIDA ARANCELARIA",
     unit_col="UNIDAD DE MEDIDA",
     value_col="US$ FOB",
-    quantity_col="CANTIDAD",
+    quantity_col="cantidad_ajustada",
     day_col="DÍA",
     month_col="MES",
     year_col="AÑO",

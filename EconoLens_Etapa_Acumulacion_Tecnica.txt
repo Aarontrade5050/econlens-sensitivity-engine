@@ -493,15 +493,72 @@ Tests mínimos requeridos (6):
 ---
 
 CRITERIOS DE ACEPTACIÓN (checklist al cerrar la fase)
-    [ ] python run.py ejecuta de extremo a extremo sin errores
-    [ ] econolens.duckdb contiene columna "arquetipo_economico" en sensitivity_results
-    [ ] pytest -v → 128 tests verdes, 0 rojos
-    [ ] El dashboard muestra el arquetipo en la vista de Alertas ISE (opcional, si da tiempo)
+    [✔] python run.py ejecuta de extremo a extremo sin errores
+    [✔] econolens.duckdb contiene columna "arquetipo_economico" en sensitivity_results
+    [✔] pytest -v → 128 tests verdes, 0 rojos
+    [ ] El dashboard muestra el arquetipo en la vista de Alertas ISE (pendiente: FASE 8)
 
 ARCHIVOS A TOCAR
-    CREAR:   src/arquetipos.py
-    CREAR:   tests/test_arquetipos.py
-    MODIFICAR: src/cleaning.py
-    MODIFICAR: src/metrics.py
-    MODIFICAR: src/narratives.py   (opcional, para personalizar textos por arquetipo)
-    MODIFICAR: run.py              (llamar clasificar_arquetipo() antes del pipeline ISE)
+    CREAR:   src/arquetipos.py          ← HECHO
+    CREAR:   tests/test_arquetipos.py   ← HECHO
+    MODIFICAR: src/cleaning.py          ← HECHO (add_unit_adjusted_quantity)
+    MODIFICAR: src/pipeline.py          ← HECHO (umbrales dinámicos + columna arquetipo)
+    MODIFICAR: run.py                   ← HECHO (clasificar_arquetipo + add_unit_adjusted_quantity)
+    MODIFICAR: src/metrics.py           ← no fue necesario (add_shock_flag ya tenía parámetros)
+    MODIFICAR: src/narratives.py        ← postergado a FASE 8
+
+****************************************************************************************
+SESIÓN 2026-06-16 – TAREAS COMPLETADAS
+****************************************************************************************
+
+FASE 7.5 – CERRADA
+
+[✔] Clasificador de arquetipos (src/arquetipos.py — NUEVO)
+    - clasificar_arquetipo(df, hs_col) → añade columna "arquetipo_economico" (Polars vectorizado)
+    - get_archetype(hs_code: str) → str — lookup puro Python para uso en pipeline
+    - ARCHETYPE_THRESHOLDS — diccionario de umbrales de shock por arquetipo:
+        COMMODITY:     volumen ±15%, precio ±5%   (cereales, combustibles, minerales)
+        BIEN_DURADERO: volumen ±80%, precio ±15%  (maquinaria, electrónicos, vehículos)
+        PERECEDERO:    volumen ±25%, precio ±10%  (carnes, lácteos, hortalizas, frutas)
+        ESTANDAR:      volumen ±20%, precio ±10%  (todo lo demás — default)
+    - Mapeo por los primeros 2 dígitos del código arancelario (capítulo HS)
+
+[✔] Guardián de unidades (src/cleaning.py — MODIFICADO)
+    - Nueva función add_unit_adjusted_quantity():
+        BIEN_DURADERO + unidad "U" → cantidad_ajustada = CANTIDAD (USD/unidad física)
+        Cualquier otro caso       → cantidad_ajustada = PESO NETO (USD/kg — estándar)
+    - Evita que los autos (Cap. 87) y la maquinaria (Cap. 84) calculen precio por kg
+
+[✔] Umbrales dinámicos del ISE (src/pipeline.py — MODIFICADO)
+    - run_pipeline() ahora llama get_archetype(hs_code) para cada producto
+    - Pasa volume_threshold y price_threshold dinámicos a add_shock_flag()
+    - add_ise_score() no cambia — sigue siendo agnóstico al arquetipo
+    - Resultado incluye columna "arquetipo_economico" en sensitivity_results
+
+[✔] run.py actualizado
+    - Orden del pipeline: clean_raw_df() → clasificar_arquetipo() → add_unit_adjusted_quantity()
+    - quantity_col="cantidad_ajustada" (reemplaza "CANTIDAD")
+    - add_shock_flag() de métricas no cambió — ya aceptaba umbrales como parámetro
+
+[✔] Tests
+    - tests/test_arquetipos.py con 6 tests:
+        · test_capitulo_87_es_bien_duradero
+        · test_capitulo_10_es_commodity
+        · test_capitulo_04_es_perecedero
+        · test_capitulo_desconocido_es_estandar
+        · test_bien_duradero_con_unidad_U_usa_cantidad_fisica
+        · test_fallback_usa_peso_neto_cuando_unidad_no_es_U
+
+TOTAL TESTS: 128 – todos verdes
+
+Nota sobre YoY para PERECEDERO:
+    La comparación interanual (YoY) para perecederos está postergada. El dataset 2025
+    no tiene año anterior disponible, por lo que la comparación siempre sería nula
+    (equivalente a desactivar el shock). El efecto deseado se logra provisionalmente
+    con umbrales más altos (±25% volumen, ±10% precio) hasta tener datos multi-año.
+
+Stack post FASE 7.5:
+  Pipeline: clean_raw_df() → clasificar_arquetipo() → add_unit_adjusted_quantity()
+            → run_pipeline_multi(quantity_col="cantidad_ajustada") → DuckDB
+  Nuevos módulos: src/arquetipos.py
+  Modificados: src/cleaning.py, src/pipeline.py, run.py

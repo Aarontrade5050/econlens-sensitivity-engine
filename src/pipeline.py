@@ -1,6 +1,7 @@
 # pipeline orchestration for running sensitivity analysis
 import polars as pl
 
+from src.arquetipos import ARCHETYPE_THRESHOLDS, get_archetype
 from src.metrics import (
     build_hs_monthly_base,
     add_monthly_variation,
@@ -47,8 +48,16 @@ def run_pipeline(
     result = add_monthly_variation(result, group_keys=group_keys)
     result = add_rolling_price_volatility(result, window=volatility_window, group_keys=group_keys)
     result = add_simple_elasticity(result)
-    result = add_shock_flag(result)
+
+    archetype = get_archetype(hs_code)
+    thresholds = ARCHETYPE_THRESHOLDS[archetype]
+    result = add_shock_flag(
+        result,
+        volume_threshold=thresholds["volume"],
+        price_threshold=thresholds["price"],
+    )
     result = add_ise_score(result)
+    result = result.with_columns(pl.lit(archetype).alias("arquetipo_economico"))
     return result
 
 
