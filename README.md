@@ -8,9 +8,9 @@ EconoLens es un motor de análisis cuantitativo que procesa importaciones Perú�
 
 ## Output principal
 
-| periodo | actor | hs_code | volumen | precio | var_pct_volumen_mensual | var_pct_precio_mensual | volatilidad_precio_6m | elasticidad_simple | shock_compuesto_flag | ise_score | ise_nivel | narrativa |
-|---------|-------|---------|---------|--------|------------------------|----------------------|----------------------|--------------------|---------------------|-----------|-----------|-----------|
-| 2025-03 | EMPRESA_A | 2710200012 | 50000 | 2.50 | -18.4 | 11.2 | 0.23 | -1.64 | 1 | 78.5 | Alto | EMPRESA_A — shock compuesto detectado; redujo volumen un 18.4% ... (ISE Alto: 78.5) |
+| periodo | actor | hs_code | arquetipo_economico | volumen | precio | var_pct_volumen_mensual | var_pct_precio_mensual | volatilidad_precio_6m | elasticidad_simple | shock_compuesto_flag | ise_score | ise_nivel |
+|---------|-------|---------|---------------------|---------|--------|------------------------|----------------------|----------------------|--------------------|---------------------|-----------|-----------|
+| 2025-03 | EMPRESA_A | 2710200012 | COMMODITY | 50000 | 2.50 | -18.4 | 11.2 | 0.23 | -1.64 | 1 | 78.5 | Alto |
 
 ---
 
@@ -51,14 +51,15 @@ src/
   dashboard.py     # Streamlit 4 tabs + navegador arancelario en cascada (5 niveles)
   narratives.py    # generate_narrative() — texto automático por fila ISE
   aggregations.py  # 5 funciones de mercado + run_aggregations() (market share, precios, rutas...)
-  cleaning.py      # clean_raw_df() — normalización vectorizada de importadores y unidades
+  cleaning.py      # clean_raw_df() / add_unit_adjusted_quantity() — normalización y guardián de unidades
+  arquetipos.py    # clasificar_arquetipo() / get_archetype() / ARCHETYPE_THRESHOLDS
   io.py            # Conversión XLSX → Parquet
-tests/             # 122 tests — pytest
+tests/             # 128 tests — pytest
 data/
   raw/             # Excel originales de SUNAT + HS2022_Jerarquia_Completa.xlsx (ignorados por git)
   interim/         # Parquets intermedios (ignorados por git)
   processed/       # econolens.duckdb y CSVs de output (ignorados por git)
-run.py             # Script de entrada: limpieza → pipeline ISE → agregaciones → dim_partida → DuckDB
+run.py             # Script de entrada: limpieza → arquetipos → pipeline ISE → agregaciones → dim_partida → DuckDB
 ```
 
 ---
@@ -86,11 +87,13 @@ Abre `http://localhost:8501` en el navegador. El dashboard incluye:
 **Navegador arancelario en cascada** (parte superior, 5 niveles):
 Sección → Capítulo → Partida 4d → Subpartida 6d → Código 10d
 
+**Badge de arquetipo** (debajo del navegador): muestra el tipo económico del producto seleccionado y los umbrales de shock activos (volumen / precio).
+
 **4 pestañas de análisis:**
 - **Competidores e Importadores** — cuota de mercado, volumen y participación por actor
 - **Precios, Rutas y Adquisición** — precio FOB por país de origen y aduana de ingreso
 - **Evolución Temporal** — empresas activas por período, volumen y precio en el tiempo
-- **Alertas ISE** — shocks detectados con narrativa automática y severidad (Crítico/Alto/Moderado)
+- **Alertas ISE** — shocks calibrados por arquetipo, con narrativa automática y severidad (Crítico/Alto/Moderado)
 
 ### 3. API REST
 
@@ -141,6 +144,7 @@ run_pipeline_auto(
 | `shock_compuesto_flag` | 1 si hay shock simultáneo en precio y volumen |
 | `ise_score` | Score compuesto 0–100 de sensibilidad económica |
 | `ise_nivel` | Clasificación: Alto (>60) / Medio (30–60) / Bajo (<30) |
+| `arquetipo_economico` | Tipo económico del producto: COMMODITY / BIEN_DURADERO / PERECEDERO / ESTANDAR |
 
 ---
 
@@ -150,7 +154,7 @@ run_pipeline_auto(
 pytest -v
 ```
 
-122 tests distribuidos en:
+128 tests distribuidos en:
 
 | Archivo | Tests | Cubre |
 |---------|-------|-------|
@@ -163,6 +167,7 @@ pytest -v
 | `test_narratives.py` | 18 | Generador de narrativas |
 | `test_aggregations.py` | 12 | 5 funciones de mercado |
 | `test_cleaning.py` | 12 | Normalización de importadores |
+| `test_arquetipos.py` | 6 | Clasificador de arquetipos + guardián de unidades |
 
 ---
 
@@ -181,6 +186,8 @@ pytest -v
 **Pipeline automatizado con manifest JSON** — rastrea qué archivos ya fueron procesados para hacer append incremental a la DB sin duplicar datos.
 
 **Narrativas por reglas** — texto generado sin LLM, determinista y auditable. Prioridad: shock → volumen → precio → volatilidad.
+
+**Arquetipos económicos** — el motor ISE calibra sus umbrales de shock según el tipo de producto: COMMODITY (±5% precio), BIEN_DURADERO (±80% volumen — arribo en lotes), PERECEDERO (±25% volumen), ESTÁNDAR (default). El precio de bienes duraderos se calcula por unidad física (USD/unidad), no por kg.
 
 **TDD a lo largo de todo el proyecto** — cada módulo tiene tests escritos antes de la implementación (RED → GREEN).
 

@@ -561,4 +561,54 @@ Stack post FASE 7.5:
   Pipeline: clean_raw_df() → clasificar_arquetipo() → add_unit_adjusted_quantity()
             → run_pipeline_multi(quantity_col="cantidad_ajustada") → DuckDB
   Nuevos módulos: src/arquetipos.py
-  Modificados: src/cleaning.py, src/pipeline.py, run.py
+  Modificados: src/cleaning.py, src/pipeline.py, run.py, src/dashboard.py
+
+[✔] Dashboard actualizado (src/dashboard.py — completado en la misma sesión)
+    - Badge de arquetipo con color bajo el navegador HS:
+        COMMODITY → verde | BIEN_DURADERO → azul | PERECEDERO → ámbar | ESTANDAR → gris
+    - Umbrales activos visibles: "volumen ±XX% / precio ±XX%" junto al badge
+    - Tab 4 caption muestra calibración del arquetipo seleccionado
+    - Cada tarjeta de alerta ISE incluye el tag del arquetipo del producto
+
+Resultados del pipeline sobre datos reales 2025 (run.py):
+    Productos procesados: 4,367
+    Actores procesados:   7,584
+    Total filas ISE:      186,721
+    Distribución arquetipos:
+        ESTANDAR:      3,133 productos | 101,365 filas | ISE prom. 52.1
+        BIEN_DURADERO: 1,115 productos |  82,865 filas | ISE prom. 49.8
+        COMMODITY:       119 productos |   2,491 filas | ISE prom. 52.2
+        PERECEDERO: baja presencia en importaciones Perú-USA (correcto — viene más de LATAM/Europa)
+
+****************************************************************************************
+ESTADO DEL STACK – POST FASE 7.5
+****************************************************************************************
+
+Pipeline de datos:
+  raw Excel → io → clean_raw_df() → clasificar_arquetipo() → add_unit_adjusted_quantity()
+  → run_pipeline_multi(quantity_col="cantidad_ajustada")
+  → run_aggregations() → dim_partida → DuckDB → dashboard
+
+Módulos activos:
+  src/arquetipos.py    — clasificar_arquetipo / get_archetype / ARCHETYPE_THRESHOLDS (NUEVO)
+  src/cleaning.py      — clean_raw_df / add_unit_adjusted_quantity
+  src/metrics.py       — variación, volatilidad, elasticidad, shock (umbrales inyectables), ISE
+  src/pipeline.py      — run_pipeline (umbrales dinámicos por arquetipo) / run_pipeline_multi
+  src/validation.py    — validate_dataframe
+  src/database.py      — save_results / load_results / load_aggregation / load_dim_partida
+  src/api.py           — FastAPI 3 endpoints
+  src/updater.py       — pipeline automatizado con manifest JSON
+  src/dashboard.py     — 4 tabs + navegador HS cascada + badge arquetipo + umbrales activos
+  src/narratives.py    — generate_narrative / add_narratives
+  src/aggregations.py  — 5 funciones de mercado + run_aggregations()
+
+Tablas activas en econolens.duckdb:
+  sensitivity_results   — ISE + arquetipo_economico por actor/periodo
+  market_share          — cuota de volumen por importador
+  price_by_country      — precio por país de adquisición
+  price_by_route        — precio por aduana de ingreso
+  price_spread          — spread min/max por importador
+  entities_over_time    — empresas activas por periodo
+  dim_partida           — jerarquía HS: Sección → Cap → Partida4d → Subpartida6d
+
+TOTAL TESTS: 128 – todos verdes

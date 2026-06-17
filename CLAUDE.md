@@ -30,7 +30,7 @@ src/
   database.py      # save_results() / load_results() / load_aggregation() / load_dim_partida() — persistencia en DuckDB
   api.py           # FastAPI — endpoints GET /results, /results/{hs_code}, /results/{hs_code}/actores
   updater.py       # run_pipeline_auto() — detecta archivos nuevos y actualiza la DB
-  dashboard.py     # Streamlit 4 tabs — Competidores / Precios y Rutas / Evolución / Alertas ISE
+  dashboard.py     # Streamlit 4 tabs + badge arquetipo + umbrales activos — Competidores / Precios y Rutas / Evolución / Alertas ISE
   narratives.py    # generate_narrative(row) y add_narratives(df) — texto automático por fila ISE
   aggregations.py  # 5 funciones de mercado + run_aggregations() — trabaja sobre df_all.parquet
   cleaning.py      # clean_raw_df() / add_unit_adjusted_quantity() — normalización y guardián de unidades

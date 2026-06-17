@@ -2,6 +2,7 @@ polars
 duckdb
 pyarrow
 openpyxl
+fastexcel
 fastapi
 uvicorn
 httpx
