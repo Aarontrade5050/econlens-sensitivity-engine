@@ -7,6 +7,7 @@ import polars as pl
 import plotly.express as px
 import streamlit as st
 
+from src.arquetipos import ARCHETYPE_THRESHOLDS
 from src.database import load_aggregation, load_dim_partida, load_results
 from src.narratives import add_narratives
 
@@ -156,8 +157,41 @@ with st.container(border=True):
             f"→ `{selected_hs}`"
         )
 
+# Arquetipo del producto seleccionado
+_ARCHETYPE_COLORS = {
+    "COMMODITY":     "#10b981",
+    "BIEN_DURADERO": "#38bdf8",
+    "PERECEDERO":    "#f59e0b",
+    "ESTANDAR":      "#94a3b8",
+}
+_ARCHETYPE_LABELS = {
+    "COMMODITY":     "COMMODITY — Cereales / Combustibles / Minerales",
+    "BIEN_DURADERO": "BIEN DURADERO — Maquinaria / Electrónicos / Vehículos",
+    "PERECEDERO":    "PERECEDERO — Carnes / Lácteos / Frutas / Hortalizas",
+    "ESTANDAR":      "ESTÁNDAR — Consumo general",
+}
+
 # Datos filtrados para la partida seleccionada
 df_hs = df_ise.filter(pl.col("hs_code") == selected_hs)
+
+arquetipo = (
+    df_hs["arquetipo_economico"][0]
+    if not df_hs.is_empty() and "arquetipo_economico" in df_hs.columns
+    else "ESTANDAR"
+)
+_arc_color = _ARCHETYPE_COLORS.get(arquetipo, "#94a3b8")
+_arc_label = _ARCHETYPE_LABELS.get(arquetipo, arquetipo)
+_thresholds = ARCHETYPE_THRESHOLDS.get(arquetipo, ARCHETYPE_THRESHOLDS["ESTANDAR"])
+
+st.markdown(
+    f'<p style="margin-top:4px;font-size:0.82em;">Arquetipo económico: '
+    f'<span style="color:{_arc_color};font-weight:700;'
+    f'background:#1e293b;padding:2px 8px;border-radius:4px;'
+    f'border:1px solid {_arc_color}33">{_arc_label}</span> '
+    f'&nbsp;·&nbsp; Umbrales activos: volumen <b>±{_thresholds["volume"]:.0f}%</b> '
+    f'/ precio <b>±{_thresholds["price"]:.0f}%</b></p>',
+    unsafe_allow_html=True,
+)
 
 def _filter(table: str) -> pl.DataFrame:
     df = aggs.get(table, pl.DataFrame())
@@ -397,7 +431,11 @@ with tab3:
 # =======================================================================
 with tab4:
     st.subheader("Alertas de Shocks Económicos e Índice de Sensibilidad (ISE)")
-    st.caption("Detección automática de movimientos fuera de lo común (shocks de volumen o quiebres de precios).")
+    st.caption(
+        f"Detección automática calibrada para arquetipo "
+        f"**{arquetipo}** — umbrales: volumen ±{_thresholds['volume']:.0f}% / "
+        f"precio ±{_thresholds['price']:.0f}%"
+    )
     st.write("")
 
     shocks = df_hs.filter(pl.col("shock_compuesto_flag") == 1)
@@ -406,18 +444,18 @@ with tab4:
         st.success("✅ No se detectaron shocks para esta partida en el período analizado.")
     else:
         shocks_with_narratives = add_narratives(shocks.sort("ise_score", descending=True))
-        
-        # Clasificamos dinámicamente las alertas por severidad
+
         for row in shocks_with_narratives.to_dicts():
             periodo_str = str(row["periodo"])[:7]
             actor = row.get("actor", "—")
             ise = row["ise_score"]
             narrativa = row.get("narrativa", "")
-            
-            # Tarjeta de alerta condicionada según severidad del ISE Score
+            arc = row.get("arquetipo_economico", arquetipo)
+
+            tag = f"`{arc}`"
             if ise >= 95.0:
-                st.error(f"🚨 **{actor}** — Período: `{periodo_str}` | **ISE Score: {ise:.1f} (Crítico)** \n{narrativa}")
+                st.error(f"🚨 **{actor}** — Período: `{periodo_str}` | **ISE: {ise:.1f} (Crítico)** | {tag}\n\n{narrativa}")
             elif ise >= 85.0:
-                st.warning(f"⚠️ **{actor}** — Período: `{periodo_str}` | **ISE Score: {ise:.1f} (Alto)** \n{narrativa}")
+                st.warning(f"⚠️ **{actor}** — Período: `{periodo_str}` | **ISE: {ise:.1f} (Alto)** | {tag}\n\n{narrativa}")
             else:
-                st.info(f"💡 **{actor}** — Período: `{periodo_str}` | **ISE Score: {ise:.1f} (Moderado)** \n{narrativa}")
+                st.info(f"💡 **{actor}** — Período: `{periodo_str}` | **ISE: {ise:.1f} (Moderado)** | {tag}\n\n{narrativa}")
