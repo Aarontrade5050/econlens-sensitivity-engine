@@ -612,3 +612,85 @@ Tablas activas en econolens.duckdb:
   dim_partida           — jerarquía HS: Sección → Cap → Partida4d → Subpartida6d
 
 TOTAL TESTS: 128 – todos verdes
+
+****************************************************************************************
+SESIÓN 2026-06-18 – TAREAS COMPLETADAS
+****************************************************************************************
+
+FASE 8 – CERRADA
+
+[✔] Flujo de ingesta de nueva data (src/ingest.py — NUEVO)
+    - Problema resuelto: agregar data nueva causaba errores de schema (DUA: Int64 vs String)
+    - Nueva carpeta data/inbox/ como drop zone para parquets SUNAT
+    - data/inbox/done/ para archivar parquets ya procesados (no se reprocesarán)
+    - config.yml en raíz del proyecto: schema canónico con 9 columnas required y 8 optional
+        · Cada columna define aliases para fuentes con nombres distintos
+        · Ejemplo: "PARTIDA ARANCELARIA" resuelve también "HS_CODE", "PARTIDA", "COD_ARANCEL"
+    - src/ingest.py con 5 funciones:
+        · load_config(config_path)          — carga YAML
+        · resolve_columns(df, schema)       — detecta por nombre exacto o alias
+        · validate_required(df, schema)     — ValueError si falta columna requerida
+        · apply_schema(df, schema)          — renombra + castea tipos (strict=False)
+        · ingest_inbox(inbox_dir, interim_path, config_path) — flujo completo
+    - run.py llama ingest_inbox() automáticamente al inicio — flujo transparente para el usuario
+    - pyyaml agregado a requirements.txt
+
+[✔] Tests
+    - tests/test_ingest.py con 12 tests:
+        · test_load_config_returns_schema_dict
+        · test_resolve_columns_finds_exact_name
+        · test_resolve_columns_finds_by_alias
+        · test_resolve_columns_ignores_unknown_columns
+        · test_validate_required_passes_when_all_present
+        · test_validate_required_raises_when_missing
+        · test_apply_schema_renames_alias_to_canonical
+        · test_apply_schema_casts_dtypes
+        · test_ingest_inbox_appends_rows_to_existing_parquet
+        · test_ingest_inbox_creates_parquet_when_not_exists
+        · test_ingest_inbox_moves_processed_file_to_done
+        · test_ingest_inbox_returns_zero_when_inbox_empty
+
+TOTAL TESTS: 140 – todos verdes
+
+Para agregar nueva data al pipeline:
+    1. Convertir a parquet: pl.read_excel("archivo.xlsx").write_parquet("data/inbox/archivo.parquet")
+    2. Correr: python run.py
+    La ingesta, validación y merge son automáticos.
+
+****************************************************************************************
+ESTADO DEL STACK – POST FASE 8
+****************************************************************************************
+
+Pipeline de datos:
+  data/inbox/*.parquet → ingest_inbox() (config.yml) → data/interim/df_all.parquet
+  → clean_raw_df() → clasificar_arquetipo() → add_unit_adjusted_quantity()
+  → run_pipeline_multi(quantity_col="cantidad_ajustada")
+  → run_aggregations() → dim_partida → DuckDB → dashboard
+
+Módulos activos:
+  src/ingest.py        — ingest_inbox / load_config / resolve_columns / apply_schema / validate_required (NUEVO)
+  src/arquetipos.py    — clasificar_arquetipo / get_archetype / ARCHETYPE_THRESHOLDS
+  src/cleaning.py      — clean_raw_df / add_unit_adjusted_quantity
+  src/metrics.py       — variación, volatilidad, elasticidad, shock (umbrales inyectables), ISE
+  src/pipeline.py      — run_pipeline (umbrales dinámicos por arquetipo) / run_pipeline_multi
+  src/validation.py    — validate_dataframe
+  src/database.py      — save_results / load_results / load_aggregation / load_dim_partida
+  src/api.py           — FastAPI 3 endpoints
+  src/updater.py       — pipeline automatizado con manifest JSON
+  src/dashboard.py     — 4 tabs + navegador HS cascada + badge arquetipo + umbrales activos
+  src/narratives.py    — generate_narrative / add_narratives
+  src/aggregations.py  — 5 funciones de mercado + run_aggregations()
+
+Archivos de configuración:
+  config.yml           — schema canónico de ingesta (required + optional + aliases por fuente)
+
+Tablas activas en econolens.duckdb:
+  sensitivity_results   — ISE + arquetipo_economico por actor/periodo
+  market_share          — cuota de volumen por importador
+  price_by_country      — precio por país de adquisición
+  price_by_route        — precio por aduana de ingreso
+  price_spread          — spread min/max por importador
+  entities_over_time    — empresas activas por periodo
+  dim_partida           — jerarquía HS: Sección → Cap → Partida4d → Subpartida6d
+
+TOTAL TESTS: 140 – todos verdes

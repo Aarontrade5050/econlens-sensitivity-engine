@@ -3,11 +3,11 @@
 ## Qué es este proyecto
 
 Motor de Sensibilidad Económica Dinámica para análisis de importaciones Perú–USA.
-Transforma datos de aduanas (Excel/Parquet) en métricas de riesgo estructural por producto e importador.
+Transforma datos de aduanas (Parquet) en métricas de riesgo estructural por producto e importador.
 
 El output principal es una tabla con:
 
-| periodo | actor | hs_code | volumen | precio | var_pct_volumen_mensual | var_pct_precio_mensual | volatilidad_precio_6m | elasticidad_simple | shock_compuesto_flag | ise_score | ise_nivel |
+| periodo | actor | hs_code | arquetipo_economico | volumen | precio | var_pct_volumen_mensual | var_pct_precio_mensual | volatilidad_precio_6m | elasticidad_simple | shock_compuesto_flag | ise_score | ise_nivel |
 
 ## Plan 18 meses
 
@@ -19,11 +19,13 @@ El output principal es una tabla con:
 - **FASE 6** ✅ Capa de limpieza liviana ✅ — Normalización de nombres (top 80% volumen) ✅
 - **FASE 7** ✅ Dimensión arancelaria — tabla `dim_partida` ✅ — Navegador en cascada 5 niveles en dashboard ✅
 - **FASE 7.5** ✅ Arquetipos económicos ✅ — Umbrales dinámicos ISE por producto ✅ — Guardián de unidades (BIEN_DURADERO → USD/unidad) ✅
+- **FASE 8** ✅ Flujo de ingesta desde inbox ✅ — `config.yml` con schema canónico y aliases ✅ — `ingest.py` integrado en `run.py` ✅
 
 ## Estructura del proyecto
 
 ```
 src/
+  ingest.py        # ingest_inbox() — lee inbox/, aplica config.yml, une con df_all.parquet
   metrics.py       # Cálculo de métricas (variación, volatilidad, elasticidad, shock, ISE)
   pipeline.py      # run_pipeline() y run_pipeline_multi() — orquestación del flujo
   validation.py    # validate_dataframe() — validación de input antes del pipeline
@@ -37,6 +39,7 @@ src/
   arquetipos.py    # clasificar_arquetipo() / get_archetype() / ARCHETYPE_THRESHOLDS — arquetipos por capítulo HS
   io.py            # Conversión XLSX → Parquet
 tests/
+  test_ingest.py        # 12 tests para ingest_inbox() y funciones auxiliares
   test_metrics.py
   test_pipeline.py
   test_validation.py
@@ -46,24 +49,44 @@ tests/
   test_narratives.py
   test_aggregations.py  # 12 tests para las 5 funciones de agregación
   test_cleaning.py      # 12 tests para clean_raw_df()
-  # test_database.py incluye 3 tests adicionales para load_dim_partida()
   test_arquetipos.py    # 6 tests para clasificar_arquetipo() y add_unit_adjusted_quantity()
 data/
-  raw/             # Excel originales (ignorados por git)
-  interim/         # df_all.parquet (ignorado por git)
+  inbox/           # Parquets nuevos para ingestar (procesados → se mueven a inbox/done/)
+  inbox/done/      # Parquets ya procesados (no se reprocesarán)
+  raw/             # Archivos de referencia: HS2022_Jerarquia_Completa.xlsx (ignorados por git)
+  interim/         # df_all.parquet — dataset combinado (ignorado por git)
   processed/       # econolens.duckdb, CSVs de output (ignorados por git)
 .streamlit/
   config.toml      # Dark theme: #0f172a fondo, #38bdf8 acento
-run.py             # Script de entrada: limpieza → arquetipos → pipeline ISE → agregaciones → dim_partida → DuckDB
+config.yml         # Schema canónico de ingesta: columnas required/optional con aliases por fuente
+run.py             # Script de entrada: inbox → limpieza → arquetipos → pipeline ISE → agregaciones → dim_partida → DuckDB
 ```
+
+## Flujo de ingesta de nueva data
+
+```
+data/inbox/*.parquet
+    → ingest.py lee config.yml
+    → resuelve columnas por nombre canónico o alias
+    → renombra y castea tipos
+    → valida columnas requeridas
+    → concat con data/interim/df_all.parquet
+    → mueve archivos a data/inbox/done/
+→ run_pipeline_multi() → DuckDB
+```
+
+Para agregar nueva data:
+1. Convertir a parquet si viene en xlsx: `pl.read_excel("archivo.xlsx").write_parquet("data/inbox/archivo.parquet")`
+2. Depositar el parquet en `data/inbox/`
+3. Correr `python run.py` — la ingesta es automática
 
 ## Datos
 
-- Fuente: importaciones Perú desde USA 2025 (SUNAT) — 1.2M filas, 64 columnas
-- Columnas usadas por el pipeline ISE: `PARTIDA ARANCELARIA`, `IMPORTADOR`, `US$ FOB`, `CANTIDAD`, `UNIDAD DE MEDIDA`, `DÍA`, `MES`, `AÑO`
-- Columnas adicionales usadas por aggregations.py: `ADUANA` (17 puertos de ingreso), `PAÍS DE ADQUISICIÓN` (87 países)
+- Fuente: importaciones Perú desde USA 2025 (SUNAT) — 1.2M+ filas, 64 columnas
+- Columnas canónicas requeridas: `PARTIDA ARANCELARIA`, `IMPORTADOR`, `US$ FOB`, `CANTIDAD`, `UNIDAD DE MEDIDA`, `PESO NETO`, `DÍA`, `MES`, `AÑO`
+- Columnas opcionales: `ADUANA`, `PAÍS DE ADQUISICIÓN`, `VÍA DE TRANSPORTE`, `PUERTO DE EMBARQUE`, `US$ CIF`, `DUA`, `CANAL`, `INCOTERM`
+- Si una fuente nueva usa nombres distintos, agregar en `config.yml` bajo `aliases`
 - `PARTIDA ARANCELARIA` viene como Int64 en el parquet — se castea a String antes del pipeline **y antes de run_aggregations()**
-- Otras columnas disponibles relevantes: `VÍA DE TRANSPORTE`, `PUERTO DE EMBARQUE`, `PESO NETO`, `US$ CIF`, `INCOTERM`, `CANAL`
 
 ## Reglas de código
 
@@ -104,8 +127,10 @@ polars
 duckdb
 pyarrow
 openpyxl
+fastexcel
+pyyaml      # lectura de config.yml
 pytest
-pandas  # solo para conversión inicial en notebook
+pandas      # solo para conversión inicial en notebook
 numpy
 fastapi
 uvicorn

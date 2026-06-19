@@ -1,0 +1,78 @@
+# EconoLens — Schema de ingesta
+#
+# Define las columnas canónicas del pipeline ISE.
+# Si una fuente nueva tiene nombres distintos, agregar el nombre alternativo en "aliases".
+# El pipeline renombra automáticamente al nombre canónico antes de procesar.
+#
+# dtypes: string | float | int
+
+schema:
+  required:
+    - name: "PARTIDA ARANCELARIA"
+      aliases: ["HS_CODE", "PARTIDA", "COD_ARANCEL", "HS CODE"]
+      dtype: string
+
+    - name: "IMPORTADOR"
+      aliases: ["IMPORTER", "EMPRESA", "RAZON_SOCIAL", "IMPORTADOR_NOMBRE"]
+      dtype: string
+
+    - name: "US$ FOB"
+      aliases: ["FOB_USD", "VALOR_FOB", "US$FOB", "FOB USD", "VALOR FOB"]
+      dtype: float
+
+    - name: "CANTIDAD"
+      aliases: ["QTY", "QUANTITY", "CANT"]
+      dtype: float
+
+    - name: "UNIDAD DE MEDIDA"
+      aliases: ["UNIT", "UNIDAD", "UND", "UNIDAD_MEDIDA"]
+      dtype: string
+
+    - name: "PESO NETO"
+      aliases: ["NET_WEIGHT", "PESO_NETO", "PESO NETO KG", "PESO_KG"]
+      dtype: float
+
+    - name: "DÍA"
+      aliases: ["DIA", "DAY", "FECHA_DIA"]
+      dtype: int
+
+    - name: "MES"
+      aliases: ["MONTH", "FECHA_MES"]
+      dtype: int
+
+    - name: "AÑO"
+      aliases: ["YEAR", "ANIO", "FECHA_ANIO"]
+      dtype: int
+
+  optional:
+    - name: "ADUANA"
+      aliases: ["CUSTOMS", "PUERTO_INGRESO", "ADUANA_INGRESO"]
+      dtype: string
+
+    - name: "PAÍS DE ADQUISICIÓN"
+      aliases: ["PAIS_ADQUISICION", "COUNTRY", "PAIS DE ADQUISICION", "PAIS_ORIGEN"]
+      dtype: string
+
+    - name: "VÍA DE TRANSPORTE"
+      aliases: ["VIA_TRANSPORTE", "TRANSPORT", "VIA DE TRANSPORTE"]
+      dtype: string
+
+    - name: "PUERTO DE EMBARQUE"
+      aliases: ["PORT", "PUERTO_EMBARQUE", "PUERTO DE EMBARQUE"]
+      dtype: string
+
+    - name: "US$ CIF"
+      aliases: ["CIF_USD", "VALOR_CIF", "US$CIF"]
+      dtype: float
+
+    - name: "DUA"
+      aliases: ["DUA_NUM", "NUM_DUA"]
+      dtype: int
+
+    - name: "CANAL"
+      aliases: ["CHANNEL", "CANAL_CONTROL"]
+      dtype: string
+
+    - name: "INCOTERM"
+      aliases: ["INCOTERMS"]
+      dtype: string

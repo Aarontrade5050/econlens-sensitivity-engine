@@ -1,14 +1,26 @@
+from pathlib import Path
+
 import polars as pl
-from src.pipeline import run_pipeline_multi
-from src.database import load_results, save_results
+
 from src.aggregations import run_aggregations
 from src.arquetipos import clasificar_arquetipo
-from src.cleaning import clean_raw_df, add_unit_adjusted_quantity
+from src.cleaning import add_unit_adjusted_quantity, clean_raw_df
+from src.database import load_results, save_results
+from src.ingest import ingest_inbox
+from src.pipeline import run_pipeline_multi
 
 DB_PATH = "data/processed/econolens.duckdb"
 HS_EXCEL = "data/raw/HS2022_Jerarquia_Completa.xlsx"
+INBOX_DIR = Path("data/inbox")
+INTERIM_PATH = Path("data/interim/df_all.parquet")
+CONFIG_PATH = Path("config.yml")
 
-df = pl.read_parquet("data/interim/df_all.parquet")
+# --- Ingestar nuevos parquets desde data/inbox/ ---
+rows_added = ingest_inbox(INBOX_DIR, INTERIM_PATH, CONFIG_PATH)
+if rows_added > 0:
+    print(f"Ingestados {rows_added:,} filas nuevas desde inbox.")
+
+df = pl.read_parquet(INTERIM_PATH)
 df = df.with_columns(pl.col("PARTIDA ARANCELARIA").cast(pl.String))
 
 # --- Limpieza de nombres y unidades (antes del pipeline) ---

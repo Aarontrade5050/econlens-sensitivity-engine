@@ -42,6 +42,7 @@ pip install -r requirements.txt
 
 ```
 src/
+  ingest.py        # ingest_inbox() — lee inbox/, aplica config.yml, une con df_all.parquet
   metrics.py       # Cálculo de métricas: variación, volatilidad, elasticidad, shock, ISE
   pipeline.py      # run_pipeline() y run_pipeline_multi() — orquestación del flujo
   validation.py    # validate_dataframe() — validación de input antes del pipeline
@@ -54,27 +55,39 @@ src/
   cleaning.py      # clean_raw_df() / add_unit_adjusted_quantity() — normalización y guardián de unidades
   arquetipos.py    # clasificar_arquetipo() / get_archetype() / ARCHETYPE_THRESHOLDS
   io.py            # Conversión XLSX → Parquet
-tests/             # 128 tests — pytest
+tests/             # 140 tests — pytest
 data/
-  raw/             # Excel originales de SUNAT + HS2022_Jerarquia_Completa.xlsx (ignorados por git)
-  interim/         # Parquets intermedios (ignorados por git)
+  inbox/           # Parquets nuevos para ingestar (procesados → se mueven a inbox/done/)
+  inbox/done/      # Parquets ya procesados (no se reprocesarán)
+  raw/             # HS2022_Jerarquia_Completa.xlsx y archivos de referencia (ignorados por git)
+  interim/         # df_all.parquet — dataset combinado (ignorado por git)
   processed/       # econolens.duckdb y CSVs de output (ignorados por git)
-run.py             # Script de entrada: limpieza → arquetipos → pipeline ISE → agregaciones → dim_partida → DuckDB
+config.yml         # Schema canónico: columnas required/optional con aliases por fuente
+run.py             # Script de entrada: inbox → limpieza → arquetipos → pipeline ISE → agregaciones → dim_partida → DuckDB
 ```
 
 ---
 
 ## Uso
 
-### 1. Procesar datos y poblar la base de datos
+### 1. Agregar nueva data e ingestar
 
-Coloca los archivos Excel de SUNAT en `data/raw/` y ejecuta:
+Convierte el archivo a parquet y deposítalo en `data/inbox/`:
+
+```python
+import polars as pl
+pl.read_excel("archivo_sunat.xlsx").write_parquet("data/inbox/archivo_sunat.parquet")
+```
+
+Luego ejecuta:
 
 ```bash
 python run.py
 ```
 
-Esto procesa todos los productos del dataset, calcula métricas ISE y guarda los resultados en `data/processed/econolens.duckdb`.
+`run.py` detecta automáticamente los parquets en `inbox/`, los valida contra `config.yml`, los une con el dataset existente y los mueve a `inbox/done/`. Después calcula métricas ISE y guarda en `data/processed/econolens.duckdb`.
+
+Si una fuente usa nombres de columna distintos, agrégalos en `config.yml` bajo `aliases` — el pipeline los renombra automáticamente al nombre canónico.
 
 ### 2. Dashboard interactivo
 
@@ -154,10 +167,11 @@ run_pipeline_auto(
 pytest -v
 ```
 
-128 tests distribuidos en:
+140 tests distribuidos en:
 
 | Archivo | Tests | Cubre |
 |---------|-------|-------|
+| `test_ingest.py` | 12 | Ingesta desde inbox + resolución de aliases + validación de schema |
 | `test_metrics.py` | 30 | Cálculo de métricas |
 | `test_pipeline.py` | 22 | Orquestación del flujo |
 | `test_validation.py` | 4 | Validación de input |
@@ -189,6 +203,8 @@ pytest -v
 
 **Arquetipos económicos** — el motor ISE calibra sus umbrales de shock según el tipo de producto: COMMODITY (±5% precio), BIEN_DURADERO (±80% volumen — arribo en lotes), PERECEDERO (±25% volumen), ESTÁNDAR (default). El precio de bienes duraderos se calcula por unidad física (USD/unidad), no por kg.
 
+**Ingesta desde inbox con config.yml** — nuevos parquets se depositan en `data/inbox/`. El `config.yml` define las columnas canónicas (required/optional) con aliases por fuente. `ingest.py` resuelve nombres, castea tipos y hace concat antes de cada ejecución del pipeline. Los archivos procesados se mueven a `inbox/done/` para no reprocesarse.
+
 **TDD a lo largo de todo el proyecto** — cada módulo tiene tests escritos antes de la implementación (RED → GREEN).
 
 ---
@@ -210,6 +226,7 @@ duckdb          # base de datos embebida
 pyarrow         # serialización parquet
 openpyxl        # lectura de Excel (Pandas)
 fastexcel       # lectura de Excel (Polars) — requerido para pl.read_excel()
+pyyaml          # lectura de config.yml
 fastapi         # API REST
 uvicorn         # servidor ASGI
 httpx           # cliente HTTP para tests de FastAPI
