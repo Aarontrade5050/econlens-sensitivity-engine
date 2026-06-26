@@ -58,6 +58,28 @@ def get_all_aggregations() -> dict[str, pl.DataFrame]:
     return {t: load_aggregation(DB_PATH, t) for t in tables}
 
 
+_SUPPLIER_TABLE_MAP: dict[str, str] = {
+    "PROVEEDOR":            "supplier_proveedor",
+    "EXPORTADOR":           "supplier_exportador",
+    "EMPRESA EXPORTADORA":  "supplier_empresa_exportadora",
+    "EMBARCADOR":           "supplier_embarcador",
+    "PROBABLE EMBARCADOR":  "supplier_probable_embarcador",
+}
+
+
+@st.cache_data
+def get_supplier_data() -> dict[str, pl.DataFrame]:
+    result = {}
+    for label, table in _SUPPLIER_TABLE_MAP.items():
+        try:
+            df = load_aggregation(DB_PATH, table)
+            if df is not None and not df.is_empty():
+                result[label] = df
+        except Exception:
+            pass
+    return result
+
+
 df_ise = get_ise_data()
 
 if df_ise is None or df_ise.is_empty():
@@ -188,8 +210,8 @@ st.markdown(
     f'<span style="color:{_arc_color};font-weight:700;'
     f'background:#1e293b;padding:2px 8px;border-radius:4px;'
     f'border:1px solid {_arc_color}33">{_arc_label}</span> '
-    f'&nbsp;·&nbsp; Umbrales activos: volumen <b>±{_thresholds["volume"]:.0f}%</b> '
-    f'/ precio <b>±{_thresholds["price"]:.0f}%</b></p>',
+    f'&nbsp;·&nbsp; Umbrales activos: volumen <b>±{_thresholds["volume"]:,.0f}%</b> '
+    f'/ precio <b>±{_thresholds["price"]:,.0f}%</b></p>',
     unsafe_allow_html=True,
 )
 
@@ -209,11 +231,12 @@ entities_df = _filter("entities_over_time")
 # -----------------------------------------------------------------------
 # 4 Pestañas principales
 # -----------------------------------------------------------------------
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📈 Competidores e Importadores",
     "🗺️ Precios, Rutas y Adquisición",
     "⏳ Evolución Temporal",
     "⚠️ Alertas ISE",
+    "🌐 Proveedores Internacionales",
 ])
 
 # =======================================================================
@@ -223,47 +246,81 @@ with tab1:
     if ms_df.is_empty():
         st.info("No hay datos de market share. Ejecuta `python run.py` para generarlos.")
     else:
-        ms_sorted = ms_df.sort("volumen_total", descending=True)
+        _has_fob = "valor_fob_total" in ms_df.columns
+
+        # Ordenar por FOB si está disponible, si no por volumen
+        ms_sorted = ms_df.sort(
+            "valor_fob_total" if _has_fob else "volumen_total",
+            descending=True,
+        )
         top_row = ms_sorted.row(0, named=True)
         total_vol = ms_sorted["volumen_total"].sum()
-        top3_pct = ms_sorted.head(3)["participacion_pct"].sum()
+        total_fob = ms_sorted["valor_fob_total"].sum() if _has_fob else None
+        top3_pct = (
+            ms_sorted.head(3)["participacion_fob_pct"].sum()
+            if _has_fob
+            else ms_sorted.head(3)["participacion_pct"].sum()
+        )
 
-        # Métricas principales encapsuladas estéticamente
-        c1, c2, c3 = st.columns(3)
+        c1, c2, c3, c4 = st.columns(4)
         c1.metric("Importador Líder", f"🏆 {top_row['actor']}")
-        c2.metric("Volumen Total Registrado", f"{total_vol:,.0f} kg")
-        c3.metric("Concentración Top 3", f"{top3_pct:.1f}%")
+        c2.metric(
+            "Valor FOB Total",
+            f"$ {total_fob:,.0f}" if total_fob is not None else "—",
+        )
+        c3.metric("Volumen Total Registrado", f"{total_vol:,.0f} kg")
+        c4.metric("Concentración Top 3 (FOB)", f"{top3_pct:.1f}%")
 
-        st.write("") # Espaciador
-        
+        st.write("")
+
         with st.container(border=True):
             st.subheader("Cuota de Mercado por Importador")
-            
-            # Formateo de DataFrame nativo de Streamlit con barras de progreso integradas (Adiós al costoso bucle for)
-            df_ms_display = (
-                ms_sorted.select([
-                    pl.col("actor").alias("Importador"),
+
+            select_cols = [pl.col("actor").alias("Importador")]
+            col_config: dict = {}
+
+            if _has_fob:
+                select_cols += [
+                    pl.col("valor_fob_total").alias("US$ FOB Acumulado"),
+                    pl.col("participacion_fob_pct").alias("% FOB"),
+                    pl.col("participacion_fob_pct").alias("Progreso FOB"),
+                    pl.col("volumen_total").alias("Volumen (kg)"),
+                ]
+                col_config = {
+                    "US$ FOB Acumulado": st.column_config.NumberColumn(format="$ %,.0f"),
+                    "% FOB": st.column_config.NumberColumn(format="%.1f%%"),
+                    "Progreso FOB": st.column_config.ProgressColumn(
+                        "Progreso",
+                        help="Cuota de mercado en valor FOB",
+                        format=" ",
+                        min_value=0,
+                        max_value=100,
+                    ),
+                    "Volumen (kg)": st.column_config.NumberColumn(format="%,d kg"),
+                }
+            else:
+                select_cols += [
                     pl.col("volumen_total").alias("Volumen Acumulado (kg)"),
                     pl.col("participacion_pct").alias("% Participación"),
-                    pl.col("participacion_pct").alias("Barra de Cuota")
-                ]).to_pandas()
-            )
-            
+                    pl.col("participacion_pct").alias("Barra de Cuota"),
+                ]
+                col_config = {
+                    "Volumen Acumulado (kg)": st.column_config.NumberColumn(format="%,d kg"),
+                    "% Participación": st.column_config.NumberColumn(format="%.1f%%"),
+                    "Barra de Cuota": st.column_config.ProgressColumn(
+                        "Progreso",
+                        format=" ",
+                        min_value=0,
+                        max_value=100,
+                    ),
+                }
+
+            df_ms_display = ms_sorted.select(select_cols).to_pandas()
             st.dataframe(
                 df_ms_display,
                 use_container_width=True,
                 hide_index=True,
-                column_config={
-                    "Volumen Acumulado (kg)": st.column_config.NumberColumn(format="%d kg"),
-                    "% Participación": st.column_config.NumberColumn(format="%.1f%%"),
-                    "Barra de Cuota": st.column_config.ProgressColumn(
-                        "Progreso",
-                        help="Representación gráfica de la cuota de mercado",
-                        format=" ",
-                        min_value=0,
-                        max_value=100
-                    )
-                }
+                column_config=col_config,
             )
 
 # =======================================================================
@@ -274,7 +331,7 @@ with tab2:
 
     with col_left:
         with st.container(border=True):
-            st.subheader("Precio por País de Adquisición")
+            st.subheader("Precio por País de Origen")
             if country_df.is_empty():
                 st.info("Sin datos de países.")
             else:
@@ -282,15 +339,15 @@ with tab2:
                     country_df
                     .sort("volumen_total", descending=True)
                     .select(["pais", "volumen_total", "precio_promedio"])
-                    .rename({"pais": "País", "volumen_total": "Volumen (kg)", "precio_promedio": "Precio FOB USD/kg"})
+                    .rename({"pais": "País de Origen", "volumen_total": "Volumen (kg)", "precio_promedio": "Precio FOB USD/kg"})
                 )
                 st.dataframe(
                     display_country.to_pandas(), 
                     use_container_width=True, 
                     hide_index=True,
                     column_config={
-                        "Volumen (kg)": st.column_config.NumberColumn(format="%d kg"),
-                        "Precio FOB USD/kg": st.column_config.NumberColumn(format="$ %.4f")
+                        "Volumen (kg)": st.column_config.NumberColumn(format="%,d kg"),
+                        "Precio FOB USD/kg": st.column_config.NumberColumn(format="$ %,.4f")
                     }
                 )
 
@@ -311,8 +368,8 @@ with tab2:
                     use_container_width=True, 
                     hide_index=True,
                     column_config={
-                        "Volumen (kg)": st.column_config.NumberColumn(format="%d kg"),
-                        "Precio FOB USD/kg": st.column_config.NumberColumn(format="$ %.4f")
+                        "Volumen (kg)": st.column_config.NumberColumn(format="%,d kg"),
+                        "Precio FOB USD/kg": st.column_config.NumberColumn(format="$ %,.4f")
                     }
                 )
 
@@ -339,9 +396,9 @@ with tab2:
                 use_container_width=True, 
                 hide_index=True,
                 column_config={
-                    "Precio Mín (USD/kg)": st.column_config.NumberColumn(format="$ %.4f"),
-                    "Precio Máx (USD/kg)": st.column_config.NumberColumn(format="$ %.4f"),
-                    "Spread (%)": st.column_config.NumberColumn(format="%.2f%%")
+                    "Precio Mín (USD/kg)": st.column_config.NumberColumn(format="$ %,.4f"),
+                    "Precio Máx (USD/kg)": st.column_config.NumberColumn(format="$ %,.4f"),
+                    "Spread (%)": st.column_config.NumberColumn(format="%,.2f%%")
                 }
             )
 
@@ -379,7 +436,10 @@ with tab3:
                 st.dataframe(
                     ent_with_trend.to_pandas(), 
                     use_container_width=True, 
-                    hide_index=True
+                    hide_index=True,
+                    column_config={
+                        "Empresas Activas": st.column_config.NumberColumn(format="%,d")
+                    }
                 )
 
     with col_right:
@@ -405,25 +465,38 @@ with tab3:
                 # Configuración compartida de Plotly (Diseño Ultra-Limpio)
                 layout_config = dict(
                     height=180,
-                    margin=dict(l=40, r=15, t=10, b=10),
+                    margin=dict(l=55, r=15, t=10, b=10), # Ligero ajuste a la izquierda para el texto largo
                     hovermode="x unified",
                     template="plotly_dark",
                     paper_bgcolor="rgba(0,0,0,0)",
                     plot_bgcolor="rgba(0,0,0,0)",
                     xaxis=dict(showgrid=False, title_text=""),
-                    yaxis=dict(showgrid=True, gridcolor="#334155")
                 )
 
-                # Gráfico 1: Volumen (Azul Neón sutil)
+                # Gráfico 1: Volumen (Forzado de comas en el eje Y y Hover)
                 fig = px.line(df_plot, x="periodo", y="Volumen Total (kg)", markers=True)
-                fig.update_traces(line=dict(width=3, color="#38bdf8"), marker=dict(size=6))
-                fig.update_layout(**layout_config)
+                fig.update_traces(
+                    line=dict(width=3, color="#38bdf8"), 
+                    marker=dict(size=6),
+                    yhoverformat="%,d"  # Separador de miles al pasar el mouse
+                )
+                fig.update_layout(
+                    **layout_config,
+                    yaxis=dict(showgrid=True, gridcolor="#334155", tickformat="%,d") # Separador de miles en el eje
+                )
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
-                # Gráfico 2: Precio (Ámbar)
+                # Gráfico 2: Precio (Forzado de comas y decimales en el eje Y y Hover)
                 fig2 = px.line(df_plot, x="periodo", y="Precio Ponderado (USD/kg)", markers=True)
-                fig2.update_traces(line=dict(width=3, color="#f59e0b"), marker=dict(size=6))
-                fig2.update_layout(**layout_config)
+                fig2.update_traces(
+                    line=dict(width=3, color="#f59e0b"), 
+                    marker=dict(size=6),
+                    yhoverformat="$,.4f" # Formato de moneda con miles y 4 decimales en Hover
+                )
+                fig2.update_layout(
+                    **layout_config,
+                    yaxis=dict(showgrid=True, gridcolor="#334155", tickformat=",.4f") # 4 decimales alineados en el eje
+                )
                 st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
 
 # =======================================================================
@@ -433,8 +506,8 @@ with tab4:
     st.subheader("Alertas de Shocks Económicos e Índice de Sensibilidad (ISE)")
     st.caption(
         f"Detección automática calibrada para arquetipo "
-        f"**{arquetipo}** — umbrales: volumen ±{_thresholds['volume']:.0f}% / "
-        f"precio ±{_thresholds['price']:.0f}%"
+        f"**{arquetipo}** — umbrales: volumen ±{_thresholds['volume']:,.0f}% / "
+        f"precio ±{_thresholds['price']:,.0f}%"
     )
     st.write("")
 
@@ -454,8 +527,84 @@ with tab4:
 
             tag = f"`{arc}`"
             if ise >= 95.0:
-                st.error(f"🚨 **{actor}** — Período: `{periodo_str}` | **ISE: {ise:.1f} (Crítico)** | {tag}\n\n{narrativa}")
+                st.error(f"🚨 **{actor}** — Período: `{periodo_str}` | **ISE: {ise:,.1f} (Crítico)** | {tag}\n\n{narrativa}")
             elif ise >= 85.0:
-                st.warning(f"⚠️ **{actor}** — Período: `{periodo_str}` | **ISE: {ise:.1f} (Alto)** | {tag}\n\n{narrativa}")
+                st.warning(f"⚠️ **{actor}** — Período: `{periodo_str}` | **ISE: {ise:,.1f} (Alto)** | {tag}\n\n{narrativa}")
             else:
-                st.info(f"💡 **{actor}** — Período: `{periodo_str}` | **ISE: {ise:.1f} (Moderado)** | {tag}\n\n{narrativa}")
+                st.info(f"💡 **{actor}** — Período: `{periodo_str}` | **ISE: {ise:,.1f} (Moderado)** | {tag}\n\n{narrativa}")
+
+# =======================================================================
+# TAB 5 — Proveedores Internacionales
+# =======================================================================
+with tab5:
+    st.subheader("Proveedores Internacionales (Análisis B2B)")
+    st.caption("Identificación de los principales exportadores en origen y sus canales de distribución locales.")
+
+    supplier_data = get_supplier_data()
+
+    if not supplier_data:
+        st.info("No hay datos de proveedores. Ejecuta `python run.py` para generarlos.")
+    else:
+        fuente = st.selectbox(
+            "Fuente del proveedor",
+            options=list(supplier_data.keys()),
+            key="supplier_fuente",
+        )
+
+        supp_df = supplier_data[fuente].filter(pl.col("hs_code") == selected_hs)
+
+        if supp_df.is_empty():
+            st.info("Sin datos de proveedores para esta partida con la fuente seleccionada.")
+        else:
+            supp_sorted = supp_df.sort("valor_fob_total", descending=True)
+
+            n_proveedores = supp_sorted["proveedor"].n_unique()
+            top_proveedor = supp_sorted.row(0, named=True)
+            dependencia = supp_sorted.head(1)["participacion_pct"].sum()
+            dep_label = "Alta" if dependencia >= 70 else "Media" if dependencia >= 40 else "Baja"
+            dep_color = "🔴" if dependencia >= 70 else "🟡" if dependencia >= 40 else "🟢"
+
+            k1, k2, k3 = st.columns(3)
+            k1.metric("Proveedores Extranjeros Activos", f"{n_proveedores} empresas")
+            k2.metric("Principal Exportador Global", f"🏢 {top_proveedor['proveedor']}")
+            k3.metric("Dependencia Comercial", f"{dependencia:.1f}% {dep_color} {dep_label}")
+
+            st.write("")
+
+            with st.container(border=True):
+                st.subheader("Matriz de Relaciones Comerciales")
+                st.caption("Mapeo de canales logísticos: vendedores en el extranjero y sus compradores directos en Perú.")
+
+                df_supp_display = supp_sorted.select([
+                    pl.col("proveedor").alias("Proveedor en Origen"),
+                    pl.col("actor").alias("Importador Peruano"),
+                    pl.col("valor_fob_total").alias("US$ FOB"),
+                    pl.col("volumen_total").alias("Masa Embarcada (kg)"),
+                    pl.col("participacion_pct").alias("% Suministro"),
+                    pl.col("participacion_pct").alias("Participación"),
+                ]).to_pandas()
+
+                st.dataframe(
+                    df_supp_display,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "US$ FOB": st.column_config.NumberColumn(format="$ %,.0f"),
+                        "Masa Embarcada (kg)": st.column_config.NumberColumn(format="%,d kg"),
+                        "% Suministro": st.column_config.NumberColumn(format="%.1f%%"),
+                        "Participación": st.column_config.ProgressColumn(
+                            "Participación de Suministro",
+                            format=" ",
+                            min_value=0,
+                            max_value=100,
+                        ),
+                    },
+                )
+
+            st.write("")
+            st.info(
+                "**Nota de Inteligencia Operativa:** Cruzar el nombre del proveedor permite identificar "
+                "si un importador está comprándole a una **empresa vinculada** (filial corporativa en el "
+                "extranjero) o si tiene un contrato de exclusividad cerrado, lo cual suele explicar por "
+                "qué sus precios se mantienen estables frente a shocks globales."
+            )

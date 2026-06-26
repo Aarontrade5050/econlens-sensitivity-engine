@@ -6,6 +6,7 @@ from src.aggregations import (
     compute_price_by_country,
     compute_price_by_route,
     compute_price_spread,
+    compute_supplier_matrix,
 )
 
 # ---------------------------------------------------------------------------
@@ -48,6 +49,24 @@ def test_market_share_sorted_descending_by_volume(raw_df):
     result = compute_market_share(raw_df, hs_col="PARTIDA ARANCELARIA", actor_col="IMPORTADOR", quantity_col="CANTIDAD")
     hs1 = result.filter(pl.col("hs_code") == "1001")["volumen_total"].to_list()
     assert hs1 == sorted(hs1, reverse=True)
+
+
+def test_market_share_includes_fob_columns(raw_df):
+    result = compute_market_share(
+        raw_df, hs_col="PARTIDA ARANCELARIA", actor_col="IMPORTADOR",
+        quantity_col="CANTIDAD", value_col="US$ FOB",
+    )
+    assert {"valor_fob_total", "participacion_fob_pct"}.issubset(set(result.columns))
+
+
+def test_market_share_fob_pct_sums_to_100_per_hs(raw_df):
+    result = compute_market_share(
+        raw_df, hs_col="PARTIDA ARANCELARIA", actor_col="IMPORTADOR",
+        quantity_col="CANTIDAD", value_col="US$ FOB",
+    )
+    totals = result.group_by("hs_code").agg(pl.col("participacion_fob_pct").sum().round(1))
+    for row in totals.to_dicts():
+        assert abs(row["participacion_fob_pct"] - 100.0) < 0.1
 
 
 # ---------------------------------------------------------------------------
@@ -175,3 +194,55 @@ def test_entities_over_time_sorted_by_periodo(raw_df):
     )
     hs1_periods = result.filter(pl.col("hs_code") == "1001")["periodo"].to_list()
     assert hs1_periods == sorted(hs1_periods)
+
+
+# ---------------------------------------------------------------------------
+# compute_supplier_matrix
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def raw_df_with_supplier(raw_df) -> pl.DataFrame:
+    return raw_df.with_columns(pl.Series("PROVEEDOR", [
+        "CARGILL INT.", "CARGILL INT.", "ADM SARL", "ADM SARL", "BUNGE CO.", "BUNGE CO."
+    ]))
+
+
+def test_supplier_matrix_returns_expected_columns(raw_df_with_supplier):
+    result = compute_supplier_matrix(
+        raw_df_with_supplier,
+        supplier_col="PROVEEDOR",
+        hs_col="PARTIDA ARANCELARIA",
+        actor_col="IMPORTADOR",
+        value_col="US$ FOB",
+        quantity_col="CANTIDAD",
+    )
+    assert {"hs_code", "proveedor", "actor", "valor_fob_total", "volumen_total", "participacion_pct"}.issubset(
+        set(result.columns)
+    )
+
+
+def test_supplier_matrix_sorted_descending_by_fob(raw_df_with_supplier):
+    result = compute_supplier_matrix(
+        raw_df_with_supplier,
+        supplier_col="PROVEEDOR",
+        hs_col="PARTIDA ARANCELARIA",
+        actor_col="IMPORTADOR",
+        value_col="US$ FOB",
+        quantity_col="CANTIDAD",
+    )
+    hs1 = result.filter(pl.col("hs_code") == "1001")["valor_fob_total"].to_list()
+    assert hs1 == sorted(hs1, reverse=True)
+
+
+def test_supplier_matrix_pct_sums_to_100_per_hs(raw_df_with_supplier):
+    result = compute_supplier_matrix(
+        raw_df_with_supplier,
+        supplier_col="PROVEEDOR",
+        hs_col="PARTIDA ARANCELARIA",
+        actor_col="IMPORTADOR",
+        value_col="US$ FOB",
+        quantity_col="CANTIDAD",
+    )
+    totals = result.group_by("hs_code").agg(pl.col("participacion_pct").sum().round(1))
+    for row in totals.to_dicts():
+        assert abs(row["participacion_pct"] - 100.0) < 0.1

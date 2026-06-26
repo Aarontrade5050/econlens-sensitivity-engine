@@ -694,3 +694,82 @@ Tablas activas en econolens.duckdb:
   dim_partida           — jerarquía HS: Sección → Cap → Partida4d → Subpartida6d
 
 TOTAL TESTS: 140 – todos verdes
+
+****************************************************************************************
+SESIÓN 2026-06-18 (continuación) – MEJORAS DE DASHBOARD
+****************************************************************************************
+
+[✔] Tab 1 — Competidores e Importadores (mejorado)
+    - compute_market_share() agrega valor_fob_total y participacion_fob_pct
+    - 4 KPIs: Importador Líder / Valor FOB Total / Volumen Total / Concentración Top 3 (FOB)
+    - Tabla ordenada por US$ FOB (no por volumen)
+    - Columnas: Importador | US$ FOB Acumulado | % FOB | Barra FOB | Volumen (kg)
+    - Concentración Top 3 calculada sobre participación FOB, no volumen
+    - Fallback automático si DB tiene schema viejo (sin valor_fob_total)
+
+[✔] Tab 2 — Precios, Rutas y Adquisición (ajuste)
+    - "Precio por País de Adquisición" renombrado a "Precio por País de Origen"
+    - aggregations.py usa PAÍS DE ORIGEN como columna fuente
+
+[✔] Tab 5 — Proveedores Internacionales (NUEVO)
+    - Nueva función compute_supplier_matrix(df, supplier_col, ...) en aggregations.py
+    - Grain: (hs_code, proveedor, importador) → valor_fob_total, volumen_total, participacion_pct
+    - run_aggregations() itera 5 columnas y guarda solo las que existen en el df:
+        supplier_proveedor, supplier_exportador, supplier_empresa_exportadora,
+        supplier_embarcador, supplier_probable_embarcador
+    - Dashboard Tab 5:
+        · Selectbox para elegir fuente de proveedor (solo muestra las disponibles en DB)
+        · 3 KPIs: Proveedores activos / Principal exportador / Dependencia comercial (🔴/🟡/🟢)
+        · Tabla: Proveedor en Origen | Importador Peruano | US$ FOB | kg | % Suministro | Barra
+        · Nota de inteligencia operativa (empresas vinculadas / exclusividad)
+    - 5 columnas de proveedor agregadas a config.yml como opcionales:
+        PROVEEDOR, EXPORTADOR, EMPRESA EXPORTADORA, EMBARCADOR, PROBABLE EMBARCADOR
+
+TOTAL TESTS: 145 – todos verdes (+3 compute_supplier_matrix, +2 FOB en market_share)
+
+****************************************************************************************
+ESTADO DEL STACK – POST SESIÓN 2026-06-18
+****************************************************************************************
+
+Pipeline de datos:
+  data/inbox/*.parquet → ingest_inbox() (config.yml) → data/interim/df_all.parquet
+  → clean_raw_df() → clasificar_arquetipo() → add_unit_adjusted_quantity()
+  → run_pipeline_multi(quantity_col="cantidad_ajustada")
+  → run_aggregations() → dim_partida → DuckDB → dashboard
+
+Módulos activos:
+  src/ingest.py        — ingest_inbox / load_config / resolve_columns / apply_schema / validate_required
+  src/arquetipos.py    — clasificar_arquetipo / get_archetype / ARCHETYPE_THRESHOLDS
+  src/cleaning.py      — clean_raw_df / add_unit_adjusted_quantity
+  src/metrics.py       — variación, volatilidad, elasticidad, shock, ISE
+  src/pipeline.py      — run_pipeline (umbrales dinámicos) / run_pipeline_multi
+  src/validation.py    — validate_dataframe
+  src/database.py      — save_results / load_results / load_aggregation / load_dim_partida
+  src/api.py           — FastAPI 3 endpoints
+  src/updater.py       — pipeline automatizado con manifest JSON
+  src/dashboard.py     — 5 tabs + navegador HS + badge arquetipo + Tab 5 B2B
+  src/narratives.py    — generate_narrative / add_narratives
+  src/aggregations.py  — compute_market_share (FOB+vol) / compute_supplier_matrix / 4 más / run_aggregations()
+
+Tablas activas en econolens.duckdb:
+  sensitivity_results         — ISE + arquetipo_economico por actor/periodo
+  market_share                — cuota: volumen + FOB + participacion_fob_pct
+  price_by_country            — precio por país de origen
+  price_by_route              — precio por aduana de ingreso
+  price_spread                — spread min/max por importador
+  entities_over_time          — empresas activas por periodo
+  dim_partida                 — jerarquía HS
+  supplier_proveedor          — B2B: proveedor → importador (si columna existe en raw)
+  supplier_exportador         — ídem EXPORTADOR
+  supplier_empresa_exportadora — ídem EMPRESA EXPORTADORA
+  supplier_embarcador         — ídem EMBARCADOR
+  supplier_probable_embarcador — ídem PROBABLE EMBARCADOR
+
+Dashboard — 5 tabs:
+  Tab 1: Competidores e Importadores (FOB + volumen, ranking FOB)
+  Tab 2: Precios, Rutas y País de Origen
+  Tab 3: Evolución Temporal
+  Tab 4: Alertas ISE (calibradas por arquetipo)
+  Tab 5: Proveedores Internacionales — análisis B2B con selectbox de fuente
+
+TOTAL TESTS: 145 – todos verdes

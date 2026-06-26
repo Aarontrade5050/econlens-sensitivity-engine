@@ -32,9 +32,9 @@ src/
   database.py      # save_results() / load_results() / load_aggregation() / load_dim_partida() — persistencia en DuckDB
   api.py           # FastAPI — endpoints GET /results, /results/{hs_code}, /results/{hs_code}/actores
   updater.py       # run_pipeline_auto() — detecta archivos nuevos y actualiza la DB
-  dashboard.py     # Streamlit 4 tabs + badge arquetipo + umbrales activos — Competidores / Precios y Rutas / Evolución / Alertas ISE
+  dashboard.py     # Streamlit 5 tabs + badge arquetipo + umbrales activos — Competidores / Precios y Rutas / Evolución / Alertas ISE / Proveedores Internacionales
   narratives.py    # generate_narrative(row) y add_narratives(df) — texto automático por fila ISE
-  aggregations.py  # 5 funciones de mercado + run_aggregations() — trabaja sobre df_all.parquet
+  aggregations.py  # compute_market_share (FOB+vol) / compute_supplier_matrix / 4 funciones más / run_aggregations()
   cleaning.py      # clean_raw_df() / add_unit_adjusted_quantity() — normalización y guardián de unidades
   arquetipos.py    # clasificar_arquetipo() / get_archetype() / ARCHETYPE_THRESHOLDS — arquetipos por capítulo HS
   io.py            # Conversión XLSX → Parquet
@@ -47,7 +47,7 @@ tests/
   test_api.py
   test_updater.py
   test_narratives.py
-  test_aggregations.py  # 12 tests para las 5 funciones de agregación
+  test_aggregations.py  # 17 tests para las 6 funciones de agregación (incluye compute_supplier_matrix)
   test_cleaning.py      # 12 tests para clean_raw_df()
   test_arquetipos.py    # 6 tests para clasificar_arquetipo() y add_unit_adjusted_quantity()
 data/
@@ -84,7 +84,7 @@ Para agregar nueva data:
 
 - Fuente: importaciones Perú desde USA 2025 (SUNAT) — 1.2M+ filas, 64 columnas
 - Columnas canónicas requeridas: `PARTIDA ARANCELARIA`, `IMPORTADOR`, `US$ FOB`, `CANTIDAD`, `UNIDAD DE MEDIDA`, `PESO NETO`, `DÍA`, `MES`, `AÑO`
-- Columnas opcionales: `ADUANA`, `PAÍS DE ADQUISICIÓN`, `VÍA DE TRANSPORTE`, `PUERTO DE EMBARQUE`, `US$ CIF`, `DUA`, `CANAL`, `INCOTERM`
+- Columnas opcionales: `ADUANA`, `PAÍS DE ADQUISICIÓN`, `PAÍS DE ORIGEN`, `VÍA DE TRANSPORTE`, `PUERTO DE EMBARQUE`, `US$ CIF`, `DUA`, `CANAL`, `INCOTERM`, `PROVEEDOR`, `EXPORTADOR`, `EMPRESA EXPORTADORA`, `EMBARCADOR`, `PROBABLE EMBARCADOR`
 - Si una fuente nueva usa nombres distintos, agregar en `config.yml` bajo `aliases`
 - `PARTIDA ARANCELARIA` viene como Int64 en el parquet — se castea a String antes del pipeline **y antes de run_aggregations()**
 

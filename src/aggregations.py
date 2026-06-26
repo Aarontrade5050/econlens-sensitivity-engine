@@ -7,10 +7,18 @@ _ACTOR_COL = "IMPORTADOR"
 _VALUE_COL = "US$ FOB"
 _QUANTITY_COL = "CANTIDAD"
 _ADUANA_COL = "ADUANA"
-_COUNTRY_COL = "PAÍS DE ADQUISICIÓN"   # PAÍS DE ADQUISICIÓN
-_DAY_COL = "DÍA"                              # DÍA
+_COUNTRY_COL = "PAÍS DE ORIGEN"
+_DAY_COL = "DÍA"
 _MONTH_COL = "MES"
-_YEAR_COL = "AÑO"                             # AÑO
+_YEAR_COL = "AÑO"
+
+_SUPPLIER_COLS: dict[str, str] = {
+    "PROVEEDOR":            "supplier_proveedor",
+    "EXPORTADOR":           "supplier_exportador",
+    "EMPRESA EXPORTADORA":  "supplier_empresa_exportadora",
+    "EMBARCADOR":           "supplier_embarcador",
+    "PROBABLE EMBARCADOR":  "supplier_probable_embarcador",
+}
 
 
 def _add_periodo(
@@ -39,26 +47,34 @@ def compute_market_share(
     hs_col: str = _HS_COL,
     actor_col: str = _ACTOR_COL,
     quantity_col: str = _QUANTITY_COL,
+    value_col: str = _VALUE_COL,
 ) -> pl.DataFrame:
-    """Volume-based market share per actor per hs_code.
+    """Volume and FOB-value market share per actor per hs_code.
 
-    Returns columns: hs_code, actor, volumen_total, participacion_pct.
+    Returns columns: hs_code, actor, volumen_total, participacion_pct,
+                     valor_fob_total, participacion_fob_pct.
     Sorted by hs_code asc, volumen_total desc.
     """
     return (
         df.filter(pl.col(actor_col).is_not_null())
         .group_by([hs_col, actor_col])
-        .agg(pl.col(quantity_col).sum().alias("volumen_total"))
+        .agg([
+            pl.col(quantity_col).sum().alias("volumen_total"),
+            pl.col(value_col).sum().alias("valor_fob_total"),
+        ])
         .rename({hs_col: "hs_code", actor_col: "actor"})
-        .with_columns(
+        .with_columns([
             (
                 pl.col("volumen_total")
                 / pl.col("volumen_total").sum().over("hs_code")
                 * 100
-            )
-            .round(2)
-            .alias("participacion_pct")
-        )
+            ).round(2).alias("participacion_pct"),
+            (
+                pl.col("valor_fob_total")
+                / pl.col("valor_fob_total").sum().over("hs_code")
+                * 100
+            ).round(2).alias("participacion_fob_pct"),
+        ])
         .sort(["hs_code", "volumen_total"], descending=[False, True])
     )
 
@@ -190,6 +206,41 @@ def compute_entities_over_time(
     )
 
 
+def compute_supplier_matrix(
+    df: pl.DataFrame,
+    supplier_col: str,
+    hs_col: str = _HS_COL,
+    actor_col: str = _ACTOR_COL,
+    value_col: str = _VALUE_COL,
+    quantity_col: str = _QUANTITY_COL,
+) -> pl.DataFrame:
+    """B2B supplier-importer relationship matrix per hs_code.
+
+    Returns columns: hs_code, proveedor, actor, valor_fob_total, volumen_total, participacion_pct.
+    Sorted by hs_code asc, valor_fob_total desc.
+    """
+    return (
+        df.filter(
+            pl.col(supplier_col).is_not_null()
+            & pl.col(actor_col).is_not_null()
+        )
+        .group_by([hs_col, supplier_col, actor_col])
+        .agg([
+            pl.col(value_col).sum().alias("valor_fob_total"),
+            pl.col(quantity_col).sum().alias("volumen_total"),
+        ])
+        .rename({hs_col: "hs_code", supplier_col: "proveedor", actor_col: "actor"})
+        .with_columns(
+            (
+                pl.col("valor_fob_total")
+                / pl.col("valor_fob_total").sum().over("hs_code")
+                * 100
+            ).round(2).alias("participacion_pct")
+        )
+        .sort(["hs_code", "valor_fob_total"], descending=[False, True])
+    )
+
+
 def run_aggregations(
     df: pl.DataFrame,
     db_path,
@@ -203,16 +254,18 @@ def run_aggregations(
     month_col: str = _MONTH_COL,
     year_col: str = _YEAR_COL,
 ) -> None:
-    """Compute all 5 aggregation tables and save them to DuckDB.
+    """Compute all aggregation tables and save them to DuckDB.
 
-    Tables written: market_share, price_by_country, price_by_route,
+    Core tables: market_share, price_by_country, price_by_route,
     price_spread, entities_over_time.
-    Each table includes an hs_code column so all partidas are stored together.
+    Supplier tables (one per available column): supplier_proveedor,
+    supplier_exportador, supplier_empresa_exportadora, supplier_embarcador,
+    supplier_probable_embarcador.
     """
     from src.database import save_results
 
     tables = {
-        "market_share": compute_market_share(df, hs_col, actor_col, quantity_col),
+        "market_share": compute_market_share(df, hs_col, actor_col, quantity_col, value_col),
         "price_by_country": compute_price_by_country(df, hs_col, country_col, value_col, quantity_col),
         "price_by_route": compute_price_by_route(df, hs_col, aduana_col, value_col, quantity_col),
         "price_spread": compute_price_spread(df, hs_col, actor_col, value_col, quantity_col),
@@ -221,3 +274,8 @@ def run_aggregations(
 
     for table_name, table_df in tables.items():
         save_results(table_df, db_path, table=table_name, if_exists="replace")
+
+    for supplier_col, table_name in _SUPPLIER_COLS.items():
+        if supplier_col in df.columns:
+            supplier_df = compute_supplier_matrix(df, supplier_col, hs_col, actor_col, value_col, quantity_col)
+            save_results(supplier_df, db_path, table=table_name, if_exists="replace")

@@ -76,3 +76,23 @@ schema:
     - name: "INCOTERM"
       aliases: ["INCOTERMS"]
       dtype: string
+
+    - name: "PROVEEDOR"
+      aliases: ["PROVEEDOR_EXTRANJERO"]
+      dtype: string
+
+    - name: "EXPORTADOR"
+      aliases: ["EXPORTADOR_EXTRANJERO"]
+      dtype: string
+
+    - name: "EMPRESA EXPORTADORA"
+      aliases: ["EMPRESA_EXPORTADORA"]
+      dtype: string
+
+    - name: "EMBARCADOR"
+      aliases: ["SHIPPER"]
+      dtype: string
+
+    - name: "PROBABLE EMBARCADOR"
+      aliases: ["PROBABLE_EMBARCADOR"]
+      dtype: string
