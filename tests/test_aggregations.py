@@ -246,3 +246,56 @@ def test_supplier_matrix_pct_sums_to_100_per_hs(raw_df_with_supplier):
     totals = result.group_by("hs_code").agg(pl.col("participacion_pct").sum().round(1))
     for row in totals.to_dicts():
         assert abs(row["participacion_pct"] - 100.0) < 0.1
+
+
+# ---------------------------------------------------------------------------
+# run_aggregations — year segmentation
+# ---------------------------------------------------------------------------
+
+def test_run_aggregations_market_share_has_periodo_column(tmp_path, monkeypatch):
+    df = pl.DataFrame({
+        "PARTIDA ARANCELARIA": ["1001", "1001"],
+        "IMPORTADOR": ["EmpresaA", "EmpresaB"],
+        "US$ FOB": [100.0, 200.0],
+        "CANTIDAD": [1000.0, 2000.0],
+        "ADUANA": ["CALLAO", "CALLAO"],
+        "PAÍS DE ORIGEN": ["USA", "USA"],
+        "DÍA": [1, 1],
+        "MES": [1, 1],
+        "AÑO": [2025, 2025],
+    })
+    saved: dict = {}
+    monkeypatch.setattr(
+        "src.database.save_results",
+        lambda df, db, table, if_exists="replace": saved.update({table: df}),
+    )
+
+    from src.aggregations import run_aggregations
+    run_aggregations(df, tmp_path / "test.duckdb")
+
+    assert "periodo" in saved["market_share"].columns
+
+
+def test_run_aggregations_segments_by_periodo(tmp_path, monkeypatch):
+    df = pl.DataFrame({
+        "PARTIDA ARANCELARIA": ["1001", "1001"],
+        "IMPORTADOR": ["EmpresaA", "EmpresaA"],
+        "US$ FOB": [100.0, 200.0],
+        "CANTIDAD": [1000.0, 2000.0],
+        "ADUANA": ["CALLAO", "CALLAO"],
+        "PAÍS DE ORIGEN": ["USA", "USA"],
+        "DÍA": [1, 1],
+        "MES": [1, 1],
+        "AÑO": [2024, 2025],
+    })
+    saved: dict = {}
+    monkeypatch.setattr(
+        "src.database.save_results",
+        lambda df, db, table, if_exists="replace": saved.update({table: df}),
+    )
+
+    from src.aggregations import run_aggregations
+    run_aggregations(df, tmp_path / "test.duckdb")
+
+    # Jan 2024 and Jan 2025 → 2 distinct periods
+    assert saved["market_share"]["periodo"].n_unique() == 2

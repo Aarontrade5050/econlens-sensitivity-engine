@@ -254,28 +254,51 @@ def run_aggregations(
     month_col: str = _MONTH_COL,
     year_col: str = _YEAR_COL,
 ) -> None:
-    """Compute all aggregation tables and save them to DuckDB.
+    """Compute all aggregation tables with monthly 'periodo' dimension and save to DuckDB.
 
-    Core tables: market_share, price_by_country, price_by_route,
-    price_spread, entities_over_time.
-    Supplier tables (one per available column): supplier_proveedor,
-    supplier_exportador, supplier_empresa_exportadora, supplier_embarcador,
-    supplier_probable_embarcador.
+    market_share, price_by_country, price_by_route, price_spread, and supplier tables
+    are computed per month so the dashboard can filter by any date range and re-aggregate.
+    entities_over_time already produces monthly data naturally.
     """
     from src.database import save_results
 
+    df_p = _add_periodo(df, day_col, month_col, year_col)
+    periodos = sorted(df_p["periodo"].unique().to_list())
+
+    def _by_periodo(fn) -> pl.DataFrame:
+        frames = []
+        for p in periodos:
+            result = fn(df_p.filter(pl.col("periodo") == p))
+            if not result.is_empty():
+                frames.append(result.with_columns(pl.lit(p, dtype=pl.Date).alias("periodo")))
+        return pl.concat(frames) if frames else pl.DataFrame()
+
+    # entities_over_time produces periodo naturally — compute on full dataset
+    eot = compute_entities_over_time(df, hs_col, actor_col, day_col, month_col, year_col)
+    if not eot.is_empty():
+        save_results(eot, db_path, table="entities_over_time", if_exists="replace")
+
     tables = {
-        "market_share": compute_market_share(df, hs_col, actor_col, quantity_col, value_col),
-        "price_by_country": compute_price_by_country(df, hs_col, country_col, value_col, quantity_col),
-        "price_by_route": compute_price_by_route(df, hs_col, aduana_col, value_col, quantity_col),
-        "price_spread": compute_price_spread(df, hs_col, actor_col, value_col, quantity_col),
-        "entities_over_time": compute_entities_over_time(df, hs_col, actor_col, day_col, month_col, year_col),
+        "market_share":     lambda d: compute_market_share(d, hs_col, actor_col, quantity_col, value_col),
+        "price_by_country": lambda d: compute_price_by_country(d, hs_col, country_col, value_col, quantity_col),
+        "price_by_route":   lambda d: compute_price_by_route(d, hs_col, aduana_col, value_col, quantity_col),
+        "price_spread":     lambda d: compute_price_spread(d, hs_col, actor_col, value_col, quantity_col),
     }
 
-    for table_name, table_df in tables.items():
-        save_results(table_df, db_path, table=table_name, if_exists="replace")
+    for table_name, fn in tables.items():
+        result = _by_periodo(fn)
+        if not result.is_empty():
+            save_results(result, db_path, table=table_name, if_exists="replace")
 
     for supplier_col, table_name in _SUPPLIER_COLS.items():
         if supplier_col in df.columns:
-            supplier_df = compute_supplier_matrix(df, supplier_col, hs_col, actor_col, value_col, quantity_col)
-            save_results(supplier_df, db_path, table=table_name, if_exists="replace")
+            frames = []
+            for p in periodos:
+                result = compute_supplier_matrix(
+                    df_p.filter(pl.col("periodo") == p),
+                    supplier_col, hs_col, actor_col, value_col, quantity_col,
+                )
+                if not result.is_empty():
+                    frames.append(result.with_columns(pl.lit(p, dtype=pl.Date).alias("periodo")))
+            if frames:
+                save_results(pl.concat(frames), db_path, table=table_name, if_exists="replace")

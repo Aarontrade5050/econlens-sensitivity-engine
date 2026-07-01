@@ -20,6 +20,7 @@ El output principal es una tabla con:
 - **FASE 7** ✅ Dimensión arancelaria — tabla `dim_partida` ✅ — Navegador en cascada 5 niveles en dashboard ✅
 - **FASE 7.5** ✅ Arquetipos económicos ✅ — Umbrales dinámicos ISE por producto ✅ — Guardián de unidades (BIEN_DURADERO → USD/unidad) ✅
 - **FASE 8** ✅ Flujo de ingesta desde inbox ✅ — `config.yml` con schema canónico y aliases ✅ — `ingest.py` integrado en `run.py` ✅
+- **FASE 9** ✅ Agregaciones con dimensión mensual (`periodo`) ✅ — Filtro Desde/Hasta en dashboard ✅ — File uploader multi-formato (parquet/csv/xlsx) ✅ — Pipeline en memoria por sesión de usuario (`_process_raw`) ✅
 
 ## Estructura del proyecto
 
@@ -32,9 +33,9 @@ src/
   database.py      # save_results() / load_results() / load_aggregation() / load_dim_partida() — persistencia en DuckDB
   api.py           # FastAPI — endpoints GET /results, /results/{hs_code}, /results/{hs_code}/actores
   updater.py       # run_pipeline_auto() — detecta archivos nuevos y actualiza la DB
-  dashboard.py     # Streamlit 5 tabs + badge arquetipo + umbrales activos — Competidores / Precios y Rutas / Evolución / Alertas ISE / Proveedores Internacionales
+  dashboard.py     # Streamlit 5 tabs + file uploader (parquet/csv/xlsx) + pipeline en memoria por sesión + filtro Desde/Hasta — Competidores / Precios y Rutas / Evolución / Alertas ISE / Proveedores Internacionales
   narratives.py    # generate_narrative(row) y add_narratives(df) — texto automático por fila ISE
-  aggregations.py  # compute_market_share (FOB+vol) / compute_supplier_matrix / 4 funciones más / run_aggregations()
+  aggregations.py  # compute_market_share (FOB+vol) / compute_supplier_matrix / 4 funciones más / run_aggregations() con dimensión mensual (columna `periodo`)
   cleaning.py      # clean_raw_df() / add_unit_adjusted_quantity() — normalización y guardián de unidades
   arquetipos.py    # clasificar_arquetipo() / get_archetype() / ARCHETYPE_THRESHOLDS — arquetipos por capítulo HS
   io.py            # Conversión XLSX → Parquet
@@ -47,7 +48,7 @@ tests/
   test_api.py
   test_updater.py
   test_narratives.py
-  test_aggregations.py  # 17 tests para las 6 funciones de agregación (incluye compute_supplier_matrix)
+  test_aggregations.py  # 19 tests para las 6 funciones de agregación + 2 tests de segmentación por periodo en run_aggregations()
   test_cleaning.py      # 12 tests para clean_raw_df()
   test_arquetipos.py    # 6 tests para clasificar_arquetipo() y add_unit_adjusted_quantity()
 data/

@@ -1,3 +1,4 @@
+import io
 import sys
 from pathlib import Path
 
@@ -36,26 +37,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("EconoLens — Motor de Inteligencia Arancelaria")
-st.caption("Análisis de Importaciones Perú–USA 2025 | Fuente: SUNAT")
+st.caption("Análisis de Importaciones Perú–USA | Fuente: SUNAT")
 
 # -----------------------------------------------------------------------
-# Carga de datos (cacheado)
+# Tabla de referencia HS (servidor — independiente del usuario)
 # -----------------------------------------------------------------------
-
-@st.cache_data
-def get_ise_data() -> pl.DataFrame:
-    return load_results(DB_PATH)
-
 
 @st.cache_data
 def get_dim_partida() -> pl.DataFrame:
-    return load_dim_partida(DB_PATH)
-
-
-@st.cache_data
-def get_all_aggregations() -> dict[str, pl.DataFrame]:
-    tables = ["market_share", "price_by_country", "price_by_route", "price_spread", "entities_over_time"]
-    return {t: load_aggregation(DB_PATH, t) for t in tables}
+    if DB_PATH.exists():
+        return load_dim_partida(DB_PATH)
+    return pl.DataFrame()
 
 
 _SUPPLIER_TABLE_MAP: dict[str, str] = {
@@ -66,27 +58,145 @@ _SUPPLIER_TABLE_MAP: dict[str, str] = {
     "PROBABLE EMBARCADOR":  "supplier_probable_embarcador",
 }
 
+# -----------------------------------------------------------------------
+# Pipeline en memoria (por sesión de usuario)
+# -----------------------------------------------------------------------
 
-@st.cache_data
-def get_supplier_data() -> dict[str, pl.DataFrame]:
-    result = {}
+def _process_raw(
+    df_raw: pl.DataFrame,
+) -> tuple[pl.DataFrame, dict[str, pl.DataFrame], dict[str, pl.DataFrame]]:
+    """Corre el pipeline completo en memoria sobre un DataFrame crudo.
+
+    Retorna (df_ise, aggs, supplier_data) sin escribir a disco.
+    """
+    from src.cleaning import clean_raw_df, add_unit_adjusted_quantity
+    from src.arquetipos import clasificar_arquetipo
+    from src.pipeline import run_pipeline_multi
+    from src.aggregations import (
+        _SUPPLIER_COLS, _COUNTRY_COL, _ADUANA_COL, _add_periodo,
+        compute_market_share, compute_price_by_country, compute_price_by_route,
+        compute_price_spread, compute_entities_over_time, compute_supplier_matrix,
+    )
+
+    # Orden idéntico a run.py
+    if "PARTIDA ARANCELARIA" in df_raw.columns:
+        df_raw = df_raw.with_columns(pl.col("PARTIDA ARANCELARIA").cast(pl.String))
+    df = clean_raw_df(df_raw)
+    df = clasificar_arquetipo(df, hs_col="PARTIDA ARANCELARIA")
+    df = add_unit_adjusted_quantity(df)
+
+    df_ise = run_pipeline_multi(
+        df,
+        hs_col="PARTIDA ARANCELARIA",
+        unit_col="UNIDAD DE MEDIDA",
+        value_col="US$ FOB",
+        quantity_col="cantidad_ajustada",
+        day_col="DÍA",
+        month_col="MES",
+        year_col="AÑO",
+        actor_col="IMPORTADOR",
+    )
+
+    df_p = _add_periodo(df)
+    periodos = sorted(df_p["periodo"].unique().to_list())
+
+    def _by_p(fn) -> pl.DataFrame:
+        frames = []
+        for p in periodos:
+            r = fn(df_p.filter(pl.col("periodo") == p))
+            if not r.is_empty():
+                frames.append(r.with_columns(pl.lit(p, dtype=pl.Date).alias("periodo")))
+        return pl.concat(frames) if frames else pl.DataFrame()
+
+    aggs: dict[str, pl.DataFrame] = {
+        "market_share":       _by_p(lambda d: compute_market_share(d)),
+        "price_by_country":   _by_p(lambda d: compute_price_by_country(d)) if _COUNTRY_COL in df.columns else pl.DataFrame(),
+        "price_by_route":     _by_p(lambda d: compute_price_by_route(d)) if _ADUANA_COL in df.columns else pl.DataFrame(),
+        "price_spread":       _by_p(lambda d: compute_price_spread(d)),
+        "entities_over_time": compute_entities_over_time(df),
+    }
+
+    supplier_data: dict[str, pl.DataFrame] = {}
+    for col in _SUPPLIER_COLS:
+        if col in df.columns:
+            frames = []
+            for p in periodos:
+                r = compute_supplier_matrix(df_p.filter(pl.col("periodo") == p), col)
+                if not r.is_empty():
+                    frames.append(r.with_columns(pl.lit(p, dtype=pl.Date).alias("periodo")))
+            if frames:
+                supplier_data[col] = pl.concat(frames)
+
+    return df_ise, aggs, supplier_data
+
+
+# -----------------------------------------------------------------------
+# Helpers de lectura — convierte cualquier formato a DataFrame Polars
+# -----------------------------------------------------------------------
+
+def _read_uploaded(file) -> pl.DataFrame:
+    """Lee xlsx / csv / parquet y devuelve un DataFrame Polars."""
+    ext = Path(file.name).suffix.lower()
+    raw = io.BytesIO(file.getvalue())
+    if ext == ".parquet":
+        return pl.read_parquet(raw)
+    if ext == ".csv":
+        return pl.read_csv(raw)
+    if ext in (".xlsx", ".xls"):
+        return pl.read_excel(raw)
+    raise ValueError(f"Formato no soportado: {ext}")
+
+
+# -----------------------------------------------------------------------
+# Sidebar — carga de archivo
+# -----------------------------------------------------------------------
+with st.sidebar:
+    st.header("📂 Dataset")
+    uploaded_file = st.file_uploader(
+        "Sube tu archivo de importaciones",
+        type=["parquet", "csv", "xlsx", "xls"],
+        help=(
+            "Formatos aceptados: .parquet, .csv, .xlsx. "
+            "Columnas requeridas: PARTIDA ARANCELARIA, IMPORTADOR, US$ FOB, "
+            "CANTIDAD, UNIDAD DE MEDIDA, PESO NETO, DÍA, MES, AÑO."
+        ),
+    )
+
+# -----------------------------------------------------------------------
+# Data loading: archivo subido (sesión) o DB (fallback local)
+# -----------------------------------------------------------------------
+if uploaded_file is not None:
+    _file_id = hash(uploaded_file.getvalue())
+    if st.session_state.get("_file_id") != _file_id:
+        with st.spinner("⏳ Procesando dataset..."):
+            _df_raw = _read_uploaded(uploaded_file)
+            _df_ise, _aggs, _supp = _process_raw(_df_raw)
+        st.session_state["_file_id"] = _file_id
+        st.session_state["_df_ise"] = _df_ise
+        st.session_state["_aggs"] = _aggs
+        st.session_state["_supp"] = _supp
+    df_ise = st.session_state["_df_ise"]
+    aggs = st.session_state["_aggs"]
+    supplier_data = st.session_state["_supp"]
+else:
+    if not DB_PATH.exists():
+        st.info("👆 Sube un archivo **.parquet** en el panel izquierdo para comenzar el análisis.")
+        st.stop()
+    df_ise = load_results(DB_PATH)
+    aggs = {t: load_aggregation(DB_PATH, t)
+            for t in ["market_share", "price_by_country", "price_by_route", "price_spread", "entities_over_time"]}
+    supplier_data = {}
     for label, table in _SUPPLIER_TABLE_MAP.items():
         try:
-            df = load_aggregation(DB_PATH, table)
-            if df is not None and not df.is_empty():
-                result[label] = df
+            df_t = load_aggregation(DB_PATH, table)
+            if df_t is not None and not df_t.is_empty():
+                supplier_data[label] = df_t
         except Exception:
             pass
-    return result
-
-
-df_ise = get_ise_data()
 
 if df_ise is None or df_ise.is_empty():
-    st.error("No hay datos en la base de datos. Corre primero `python run.py`.")
+    st.error("El dataset procesado está vacío. Verifica que el archivo tiene las columnas requeridas.")
     st.stop()
-
-aggs = get_all_aggregations()
 
 # -----------------------------------------------------------------------
 # Filtro principal: navegador arancelario en cascada (5 niveles)
@@ -179,6 +289,26 @@ with st.container(border=True):
             f"→ `{selected_hs}`"
         )
 
+# Date range filter
+_ms_agg = aggs.get("market_share", pl.DataFrame())
+_has_periodo_filter = "periodo" in _ms_agg.columns
+
+if _has_periodo_filter:
+    _periodos_disp = sorted(_ms_agg["periodo"].unique().to_list())
+    _ES_MONTHS = {1:"Ene",2:"Feb",3:"Mar",4:"Abr",5:"May",6:"Jun",
+                  7:"Jul",8:"Ago",9:"Sep",10:"Oct",11:"Nov",12:"Dic"}
+    _fmt_p = lambda p: f"{_ES_MONTHS[p.month]} {p.year}"
+    _col_d, _col_h, _col_sp = st.columns([1, 1, 2])
+    with _col_d:
+        selected_start = st.selectbox("Desde", options=_periodos_disp, format_func=_fmt_p, index=0)
+    with _col_h:
+        selected_end = st.selectbox("Hasta", options=_periodos_disp, format_func=_fmt_p, index=len(_periodos_disp) - 1)
+    if selected_start > selected_end:
+        selected_start, selected_end = selected_end, selected_start
+else:
+    selected_start = None
+    selected_end = None
+
 # Arquetipo del producto seleccionado
 _ARCHETYPE_COLORS = {
     "COMMODITY":     "#10b981",
@@ -193,8 +323,12 @@ _ARCHETYPE_LABELS = {
     "ESTANDAR":      "ESTÁNDAR — Consumo general",
 }
 
-# Datos filtrados para la partida seleccionada
+# Datos filtrados para la partida y rango de fechas seleccionados
 df_hs = df_ise.filter(pl.col("hs_code") == selected_hs)
+if selected_start is not None and "periodo" in df_hs.columns:
+    df_hs = df_hs.filter(
+        (pl.col("periodo") >= selected_start) & (pl.col("periodo") <= selected_end)
+    )
 
 arquetipo = (
     df_hs["arquetipo_economico"][0]
@@ -219,13 +353,78 @@ def _filter(table: str) -> pl.DataFrame:
     df = aggs.get(table, pl.DataFrame())
     if df.is_empty() or "hs_code" not in df.columns:
         return pl.DataFrame()
-    return df.filter(pl.col("hs_code") == selected_hs)
+    result = df.filter(pl.col("hs_code") == selected_hs)
+    if selected_start is not None and "periodo" in result.columns:
+        result = result.filter(
+            (pl.col("periodo") >= selected_start) & (pl.col("periodo") <= selected_end)
+        )
+    return result
 
 
-ms_df = _filter("market_share")
-country_df = _filter("price_by_country")
-route_df = _filter("price_by_route")
-spread_df = _filter("price_spread")
+def _reagg_ms(df: pl.DataFrame) -> pl.DataFrame:
+    if df.is_empty() or "periodo" not in df.columns:
+        return df
+    return (
+        df.group_by("actor")
+        .agg([pl.col("volumen_total").sum(), pl.col("valor_fob_total").sum()])
+        .with_columns([
+            (pl.col("volumen_total") / pl.col("volumen_total").sum() * 100).round(2).alias("participacion_pct"),
+            (pl.col("valor_fob_total") / pl.col("valor_fob_total").sum() * 100).round(2).alias("participacion_fob_pct"),
+        ])
+        .sort("valor_fob_total", descending=True)
+    )
+
+
+def _reagg_country(df: pl.DataFrame) -> pl.DataFrame:
+    if df.is_empty() or "periodo" not in df.columns:
+        return df
+    return (
+        df.group_by("pais")
+        .agg([pl.col("volumen_total").sum(), pl.col("valor_total").sum()])
+        .filter(pl.col("volumen_total") > 0)
+        .with_columns(
+            (pl.col("valor_total") / pl.col("volumen_total")).round(4).alias("precio_promedio")
+        )
+        .sort("volumen_total", descending=True)
+    )
+
+
+def _reagg_route(df: pl.DataFrame) -> pl.DataFrame:
+    if df.is_empty() or "periodo" not in df.columns:
+        return df
+    return (
+        df.group_by("aduana")
+        .agg([pl.col("volumen_total").sum(), pl.col("valor_total").sum()])
+        .filter(pl.col("volumen_total") > 0)
+        .with_columns(
+            (pl.col("valor_total") / pl.col("volumen_total")).round(4).alias("precio_promedio")
+        )
+        .sort("volumen_total", descending=True)
+    )
+
+
+def _reagg_spread(df: pl.DataFrame) -> pl.DataFrame:
+    if df.is_empty() or "periodo" not in df.columns:
+        return df
+    return (
+        df.group_by("actor")
+        .agg([pl.col("precio_min").min(), pl.col("precio_max").max()])
+        .with_columns(
+            pl.when(pl.col("precio_min") > 0)
+            .then(
+                ((pl.col("precio_max") - pl.col("precio_min")) / pl.col("precio_min") * 100).round(2)
+            )
+            .otherwise(None)
+            .alias("spread_pct")
+        )
+        .sort("spread_pct", descending=True)
+    )
+
+
+ms_df = _reagg_ms(_filter("market_share"))
+country_df = _reagg_country(_filter("price_by_country"))
+route_df = _reagg_route(_filter("price_by_route"))
+spread_df = _reagg_spread(_filter("price_spread"))
 entities_df = _filter("entities_over_time")
 
 # -----------------------------------------------------------------------
@@ -540,8 +739,6 @@ with tab5:
     st.subheader("Proveedores Internacionales (Análisis B2B)")
     st.caption("Identificación de los principales exportadores en origen y sus canales de distribución locales.")
 
-    supplier_data = get_supplier_data()
-
     if not supplier_data:
         st.info("No hay datos de proveedores. Ejecuta `python run.py` para generarlos.")
     else:
@@ -552,6 +749,20 @@ with tab5:
         )
 
         supp_df = supplier_data[fuente].filter(pl.col("hs_code") == selected_hs)
+        if selected_start is not None and "periodo" in supp_df.columns:
+            supp_df = supp_df.filter(
+                (pl.col("periodo") >= selected_start) & (pl.col("periodo") <= selected_end)
+            )
+            if not supp_df.is_empty():
+                supp_df = (
+                    supp_df.group_by(["proveedor", "actor"])
+                    .agg([pl.col("valor_fob_total").sum(), pl.col("volumen_total").sum()])
+                    .with_columns(
+                        (pl.col("valor_fob_total") / pl.col("valor_fob_total").sum() * 100)
+                        .round(2).alias("participacion_pct")
+                    )
+                    .sort("valor_fob_total", descending=True)
+                )
 
         if supp_df.is_empty():
             st.info("Sin datos de proveedores para esta partida con la fuente seleccionada.")
