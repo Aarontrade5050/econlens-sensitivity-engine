@@ -82,7 +82,12 @@ def get_dim_partida() -> pl.DataFrame:
     if DB_PATH.exists():
         return load_dim_partida(DB_PATH)
     if _DIM_PARTIDA_CSV.exists():
-        return pl.read_csv(_DIM_PARTIDA_CSV)
+        return pl.read_csv(_DIM_PARTIDA_CSV, schema_overrides={
+            "seccion": pl.String,
+            "capitulo": pl.String,
+            "partida_4d": pl.String,
+            "subpartida_6d": pl.String,
+        })
     return pl.DataFrame()
 
 
