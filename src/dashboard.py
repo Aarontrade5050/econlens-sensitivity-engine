@@ -22,22 +22,55 @@ st.set_page_config(
 )
 
 # Estilo global mínimo mediante Markdown (Mejora fuentes y contraste de pestañas)
+# Estilo global optimizado para Modo Oscuro Integrado (Datasur Palette)
 st.markdown("""
     <style>
-    div[data-testid="stMetric"] {
-        background-color: #1e293b;
-        padding: 15px;
-        border-radius: 10px;
-        border: 1px solid #334155;
+    /* 1. Rescatar los títulos principales para que sean legibles */
+    h1 { 
+        color: #ffffff !important; 
+        font-weight: 700 !important;
+        letter-spacing: -0.025em;
     }
-    div[data-testid="stNotification"] {
-        border-radius: 10px;
+    h3 {
+        color: #f1f5f9 !important;
+    }
+    
+    /* 2. Transformación total de las métricas (Adiós al fondo blanco) */
+    div[data-testid="stMetric"] {
+        background-color: #111c30 !important; /* Azul noche profundo integrado al fondo */
+        padding: 20px !important;
+        border-radius: 10px !important;
+        border: 1px solid #1e293b !important; /* Borde sutil para dar volumen */
+        border-left: 4px solid #ff8c00 !important; /* Acento naranja Datasur */
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2) !important;
+    }
+    
+    /* 3. Forzar legibilidad de los textos dentro de las métricas */
+    div[data-testid="stMetric"] label [data-testid="stMarkdownContainer"] p {
+        color: #94a3b8 !important; /* Gris Slate suave para etiquetas */
+        font-weight: 500 !important;
+    }
+    div[data-testid="stMetric"] [data-testid="stMetricValue"] div {
+        color: #ffffff !important; /* Blanco limpio para los números grandes */
+        font-weight: 700 !important;
+    }
+    
+    /* 4. Estilizado de pestañas (Tabs) */
+    .stTabs [data-baseweb="tab-list"] button {
+        color: #94a3b8 !important;
+    }
+    .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
+        color: #ffffff !important;
+        font-weight: 600 !important;
+    }
+    .stTabs [data-baseweb="tab-list"] button [data-baseweb="tab-highlight"] {
+        background-color: #ff8c00 !important; /* Línea naranja para la pestaña activa */
     }
     </style>
 """, unsafe_allow_html=True)
 
 st.title("EconoLens — Motor de Inteligencia Arancelaria")
-st.caption("Análisis de Importaciones Perú–USA | Fuente: SUNAT")
+st.caption("Análisis de Importaciones Perú–USA | Fuente: Datasur")
 
 # -----------------------------------------------------------------------
 # Tabla de referencia HS (servidor — independiente del usuario)
@@ -311,10 +344,10 @@ else:
 
 # Arquetipo del producto seleccionado
 _ARCHETYPE_COLORS = {
-    "COMMODITY":     "#10b981",
-    "BIEN_DURADERO": "#38bdf8",
-    "PERECEDERO":    "#f59e0b",
-    "ESTANDAR":      "#94a3b8",
+    "COMMODITY":     "#0047AB", # Azul Datasur
+    "BIEN_DURADERO": "#007BFF", # Azul claro
+    "PERECEDERO":    "#FF8C00", # Naranja Datasur
+    "ESTANDAR":      "#64748b",
 }
 _ARCHETYPE_LABELS = {
     "COMMODITY":     "COMMODITY — Cereales / Combustibles / Minerales",

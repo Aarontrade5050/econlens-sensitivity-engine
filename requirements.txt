@@ -10,5 +10,4 @@ streamlit
 plotly
 pandas
 numpy
-pytest
 pyyaml
