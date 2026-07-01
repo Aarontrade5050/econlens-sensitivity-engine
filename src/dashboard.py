@@ -13,6 +13,7 @@ from src.database import load_aggregation, load_dim_partida, load_results
 from src.narratives import add_narratives
 
 DB_PATH = Path("data/processed/econolens.duckdb")
+_DIM_PARTIDA_CSV = Path(__file__).parent.parent / "resources" / "dim_partida.csv"
 
 # Configuración de página limpia y profesional
 st.set_page_config(
@@ -80,6 +81,8 @@ st.caption("Análisis de Importaciones Perú–USA | Fuente: Datasur")
 def get_dim_partida() -> pl.DataFrame:
     if DB_PATH.exists():
         return load_dim_partida(DB_PATH)
+    if _DIM_PARTIDA_CSV.exists():
+        return pl.read_csv(_DIM_PARTIDA_CSV)
     return pl.DataFrame()
 
 
