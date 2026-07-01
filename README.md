@@ -49,13 +49,15 @@ src/
   database.py      # save_results() / load_results() / load_aggregation() / load_dim_partida()
   api.py           # FastAPI — endpoints REST para consultar resultados
   updater.py       # run_pipeline_auto() — detecta archivos nuevos y actualiza la DB
-  dashboard.py     # Streamlit 4 tabs + navegador arancelario en cascada (5 niveles)
+  dashboard.py     # Streamlit 5 tabs + file uploader (parquet/csv/xlsx) + pipeline en sesión + navegador HS en cascada
   narratives.py    # generate_narrative() — texto automático por fila ISE
-  aggregations.py  # 5 funciones de mercado + run_aggregations() (market share, precios, rutas...)
+  aggregations.py  # 6 funciones de mercado + run_aggregations() con dimensión mensual (periodo)
   cleaning.py      # clean_raw_df() / add_unit_adjusted_quantity() — normalización y guardián de unidades
   arquetipos.py    # clasificar_arquetipo() / get_archetype() / ARCHETYPE_THRESHOLDS
   io.py            # Conversión XLSX → Parquet
-tests/             # 140 tests — pytest
+tests/             # 147 tests — pytest
+resources/
+  dim_partida.csv  # Jerarquía HS 2022 (5,633 filas) — fallback estático para modo file-upload
 data/
   inbox/           # Parquets nuevos para ingestar (procesados → se mueven a inbox/done/)
   inbox/done/      # Parquets ya procesados (no se reprocesarán)
@@ -91,22 +93,32 @@ Si una fuente usa nombres de columna distintos, agrégalos en `config.yml` bajo 
 
 ### 2. Dashboard interactivo
 
+**Modo local:**
 ```bash
 streamlit run src/dashboard.py
 ```
 
-Abre `http://localhost:8501` en el navegador. El dashboard incluye:
+**Modo cloud (compartir con otros):** el dashboard está desplegado en Streamlit Community Cloud — conecta el repo `Aarontrade5050/econlens-sensitivity-engine` en [share.streamlit.io](https://share.streamlit.io).
+
+El dashboard incluye:
+
+**Panel lateral — Carga de datos:**
+Sube un archivo (parquet/csv/xlsx) directamente desde el navegador. El pipeline completo corre en memoria, aislado por sesión de usuario. Si no hay archivo, carga desde `econolens.duckdb` local si existe.
 
 **Navegador arancelario en cascada** (parte superior, 5 niveles):
 Sección → Capítulo → Partida 4d → Subpartida 6d → Código 10d
+Disponible en ambos modos (DB y file-upload) gracias al fallback en `resources/dim_partida.csv`.
 
-**Badge de arquetipo** (debajo del navegador): muestra el tipo económico del producto seleccionado y los umbrales de shock activos (volumen / precio).
+**Filtro de período** (Desde / Hasta a nivel mensual): filtra todas las pestañas por rango de fechas.
 
-**4 pestañas de análisis:**
-- **Competidores e Importadores** — cuota de mercado, volumen y participación por actor
-- **Precios, Rutas y Adquisición** — precio FOB por país de origen y aduana de ingreso
+**Badge de arquetipo**: tipo económico del producto y umbrales de shock activos.
+
+**5 pestañas de análisis:**
+- **Competidores e Importadores** — cuota de mercado FOB y volumen por actor
+- **Precios, Rutas y País de Origen** — precio FOB por país de origen y aduana de ingreso
 - **Evolución Temporal** — empresas activas por período, volumen y precio en el tiempo
-- **Alertas ISE** — shocks calibrados por arquetipo, con narrativa automática y severidad (Crítico/Alto/Moderado)
+- **Alertas ISE** — shocks calibrados por arquetipo, con narrativa automática y severidad
+- **Proveedores Internacionales** — matriz B2B proveedor → importador peruano
 
 ### 3. API REST
 
@@ -167,7 +179,7 @@ run_pipeline_auto(
 pytest -v
 ```
 
-140 tests distribuidos en:
+147 tests distribuidos en:
 
 | Archivo | Tests | Cubre |
 |---------|-------|-------|
@@ -179,7 +191,7 @@ pytest -v
 | `test_api.py` | 10 | Endpoints FastAPI |
 | `test_updater.py` | 9 | Pipeline automatizado |
 | `test_narratives.py` | 18 | Generador de narrativas |
-| `test_aggregations.py` | 12 | 5 funciones de mercado |
+| `test_aggregations.py` | 19 | 6 funciones de mercado + segmentación mensual por periodo |
 | `test_cleaning.py` | 12 | Normalización de importadores |
 | `test_arquetipos.py` | 6 | Clasificador de arquetipos + guardián de unidades |
 
@@ -234,5 +246,5 @@ streamlit       # dashboard interactivo
 plotly          # gráficos
 pandas          # conversión inicial desde Excel
 numpy           # cálculos numéricos
-pytest          # tests
+# pytest — solo desarrollo, instalar con: pip install pytest
 ```

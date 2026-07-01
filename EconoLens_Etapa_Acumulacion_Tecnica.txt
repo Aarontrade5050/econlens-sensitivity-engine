@@ -773,3 +773,72 @@ Dashboard — 5 tabs:
   Tab 5: Proveedores Internacionales — análisis B2B con selectbox de fuente
 
 TOTAL TESTS: 145 – todos verdes
+
+****************************************************************************************
+SESIÓN 2026-06-30 – TAREAS COMPLETADAS
+****************************************************************************************
+
+FASE 9 – CERRADA (completada sesión anterior, documentada aquí)
+
+[✔] Agregaciones con dimensión mensual (src/aggregations.py)
+    - run_aggregations() reescrito para calcular todas las tablas por mes calendario
+    - _add_periodo() genera columna periodo (pl.Date, primer día del mes) desde DÍA/MES/AÑO
+    - market_share, price_by_country, price_by_route, price_spread y supplier_* tienen columna periodo
+    - entities_over_time produce periodo naturalmente — se calcula sobre dataset completo
+    - 2 tests nuevos: test_run_aggregations_market_share_has_periodo_column,
+                      test_run_aggregations_segments_by_periodo
+
+[✔] Filtro Desde/Hasta en dashboard (src/dashboard.py)
+    - Selectbox de mes/año inicio y fin (nivel mensual, no anual)
+    - Re-agregación inline: suma datos mensuales del rango, recalcula participaciones %
+    - Helpers: _reagg_ms, _reagg_country, _reagg_route, _reagg_spread
+
+[✔] File uploader multi-formato (src/dashboard.py)
+    - st.file_uploader acepta parquet, csv, xlsx
+    - _read_uploaded(file) convierte a pl.DataFrame según extensión
+    - _process_raw(df_raw) corre pipeline completo en memoria (sin escritura a disco):
+        1. cast PARTIDA ARANCELARIA → String
+        2. clean_raw_df()
+        3. clasificar_arquetipo()
+        4. add_unit_adjusted_quantity()
+        5. run_pipeline_multi(quantity_col="cantidad_ajustada")
+        6. agregaciones mensuales por _by_p()
+    - st.session_state aísla resultados por sesión de usuario
+
+TOTAL TESTS: 147 – todos verdes
+
+---
+
+FASE 10 – CERRADA
+
+[✔] Despliegue en Streamlit Community Cloud
+    - Repo conectado: Aarontrade5050/econlens-sensitivity-engine (branch main)
+    - Main file: src/dashboard.py
+    - pytest removido de requirements.txt (solo dev — no se instala en producción)
+
+[✔] resources/dim_partida.csv — fallback estático de jerarquía HS
+    - Exportado desde DuckDB: 5,633 filas × 8 columnas
+    - Tamaño: ~2 MB — incluido en el repo (fuera de data/ que está gitignoreado)
+    - get_dim_partida() actualizado: DB existe → carga de DB / no existe → carga CSV
+    - schema_overrides al leer CSV: seccion, capitulo, partida_4d, subpartida_6d → String
+      (Polars los infería como Int64, causando InvalidOperationError en .is_in())
+
+[✔] Navegador en cascada disponible en modo file-upload
+    - Antes: sin DB, el navegador caía al selector simple de código 10d
+    - Ahora: carga dim_partida.csv → 5 niveles disponibles en cualquier modo
+
+Stack post FASE 10:
+  Nueva carpeta: resources/
+  Nuevo archivo: resources/dim_partida.csv
+  Modos del dashboard:
+    · Con DB local: carga ISE + agregaciones + dim_partida desde econolens.duckdb
+    · Sin DB (Streamlit Cloud / testers): file uploader → _process_raw() en sesión,
+      dim_partida desde resources/dim_partida.csv
+
+Tablas activas en econolens.duckdb (todas ahora con columna periodo mensual):
+  sensitivity_results, market_share, price_by_country, price_by_route,
+  price_spread, entities_over_time, dim_partida,
+  supplier_proveedor, supplier_exportador, supplier_empresa_exportadora,
+  supplier_embarcador, supplier_probable_embarcador
+
+TOTAL TESTS: 147 – todos verdes

@@ -21,6 +21,7 @@ El output principal es una tabla con:
 - **FASE 7.5** ✅ Arquetipos económicos ✅ — Umbrales dinámicos ISE por producto ✅ — Guardián de unidades (BIEN_DURADERO → USD/unidad) ✅
 - **FASE 8** ✅ Flujo de ingesta desde inbox ✅ — `config.yml` con schema canónico y aliases ✅ — `ingest.py` integrado en `run.py` ✅
 - **FASE 9** ✅ Agregaciones con dimensión mensual (`periodo`) ✅ — Filtro Desde/Hasta en dashboard ✅ — File uploader multi-formato (parquet/csv/xlsx) ✅ — Pipeline en memoria por sesión de usuario (`_process_raw`) ✅
+- **FASE 10** ✅ Despliegue en Streamlit Community Cloud ✅ — `resources/dim_partida.csv` fallback estático de jerarquía HS ✅ — Navegador en cascada disponible en modo file-upload (sin DB) ✅
 
 ## Estructura del proyecto
 
@@ -57,6 +58,8 @@ data/
   raw/             # Archivos de referencia: HS2022_Jerarquia_Completa.xlsx (ignorados por git)
   interim/         # df_all.parquet — dataset combinado (ignorado por git)
   processed/       # econolens.duckdb, CSVs de output (ignorados por git)
+resources/
+  dim_partida.csv  # Jerarquía HS 2022 estática (5,633 filas) — fallback cuando no hay DB
 .streamlit/
   config.toml      # Dark theme: #0f172a fondo, #38bdf8 acento
 config.yml         # Schema canónico de ingesta: columnas required/optional con aliases por fuente
@@ -130,7 +133,6 @@ pyarrow
 openpyxl
 fastexcel
 pyyaml      # lectura de config.yml
-pytest
 pandas      # solo para conversión inicial en notebook
 numpy
 fastapi
@@ -138,8 +140,10 @@ uvicorn
 httpx       # requerido por FastAPI TestClient
 streamlit   # dashboard
 plotly      # gráficos en el dashboard
+# pytest solo en desarrollo (no en requirements.txt de producción)
 # Para correr la API: uvicorn src.api:app --reload
 # Para correr el dashboard: streamlit run src/dashboard.py
+# Dashboard en producción: https://share.streamlit.io → repo Aarontrade5050/econlens-sensitivity-engine
 ```
 
 ## Regla principal del proyecto
