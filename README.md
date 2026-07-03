@@ -111,7 +111,7 @@ Disponible en ambos modos (DB y file-upload) gracias al fallback en `resources/d
 
 **Filtro de período** (Desde / Hasta a nivel mensual): filtra todas las pestañas por rango de fechas.
 
-**Badge de arquetipo**: tipo económico del producto y umbrales de shock activos.
+**Badge de arquetipo**: tipo económico del producto y umbrales de shock activos. Los labels de volumen y precio son dinámicos según el arquetipo: `BIEN_DURADERO` muestra "unidades" y "USD/unidad"; los demás muestran "kg" y "USD/kg".
 
 **5 pestañas de análisis:**
 - **Competidores e Importadores** — cuota de mercado FOB y volumen por actor

@@ -842,3 +842,33 @@ Tablas activas en econolens.duckdb (todas ahora con columna periodo mensual):
   supplier_embarcador, supplier_probable_embarcador
 
 TOTAL TESTS: 147 – todos verdes
+
+****************************************************************************************
+SESIÓN 2026-07-02 – TAREAS COMPLETADAS
+****************************************************************************************
+
+[✔] Labels dinámicos de volumen y precio por arquetipo (src/dashboard.py)
+    - Problema: columna mostraba "19 kg" para importaciones de autos (BIEN_DURADERO)
+      cuando el valor real son 19 unidades físicas (cantidad_ajustada = CANTIDAD, no PESO NETO)
+    - Solución: dos variables calculadas justo después de determinar el arquetipo:
+        _vol_unit   = "unidades" si arquetipo == "BIEN_DURADERO", else "kg"
+        _price_unit = f"USD/{_vol_unit}"
+    - Aplicadas en todas las tabs: métricas, tablas, column_config y gráficos Plotly
+        Tab 1: "Volumen Total Registrado: 19 unidades" / "19 kg"
+        Tab 2: columnas "Volumen (unidades)", "Precio FOB USD/unidad" / idem kg
+        Tab 3: gráficos "Volumen Total (unidades)", "Precio Ponderado (USD/unidad)"
+        Tab 5: "Masa Embarcada (unidades)" / "Masa Embarcada (kg)"
+
+[✔] Despliegue en Streamlit Community Cloud confirmado
+    - URL pública: econolens-sensitivity-engine-77jva93hkiggh8sd4oaub2.streamlit.app
+    - Descripción del app configurable desde share.streamlit.io → ⋮ → Settings
+    - Repo público sin información sensible confirmado (grep sobre todos los archivos tracked)
+      · Datos (parquet, duckdb) protegidos por .gitignore — no están en el repo
+      · Solo código fuente y jerarquía HS pública (dim_partida.csv)
+
+[~] Unidades volumétricas (M3, LT, GL) para COMMODITY — POSTERGADO
+    - Observación: gasolina (Cap. 27) puede venir en M3 en vez de KG
+    - Riesgo: unidades mixtas dentro del mismo HS code harían los agregados inválidos
+    - Decisión: verificar distribución de unidades por capítulo antes de implementar
+
+TOTAL TESTS: 147 – todos verdes (sin cambios en tests esta sesión)
