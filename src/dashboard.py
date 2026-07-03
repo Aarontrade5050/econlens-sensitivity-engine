@@ -36,7 +36,7 @@ st.markdown("""
         color: #f1f5f9 !important;
     }
     
-    /* 2. Transformación total de las métricas (Adiós al fondo blanco) */
+    /* 2. Transformación de las métricas (Ajustadas para evitar truncado) */
     div[data-testid="stMetric"] {
         background-color: #111c30 !important; /* Azul noche profundo integrado al fondo */
         padding: 20px !important;
@@ -46,14 +46,22 @@ st.markdown("""
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2) !important;
     }
     
-    /* 3. Forzar legibilidad de los textos dentro de las métricas */
+    /* 3. Forzar legibilidad y salto de línea automático para evitar puntos suspensivos (...) */
     div[data-testid="stMetric"] label [data-testid="stMarkdownContainer"] p {
         color: #94a3b8 !important; /* Gris Slate suave para etiquetas */
         font-weight: 500 !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        font-size: 0.85em !important;
     }
+    
     div[data-testid="stMetric"] [data-testid="stMetricValue"] div {
         color: #ffffff !important; /* Blanco limpio para los números grandes */
         font-weight: 700 !important;
+        white-space: normal !important;      /* <- Permite que el texto largo salte de línea */
+        word-break: break-word !important;     /* <- Rompe palabras si es estrictamente necesario */
+        font-size: 1.6rem !important;        /* <- Ajuste de tamaño para que quepa más información */
+        line-height: 1.2 !important;
     }
     
     /* 4. Estilizado de pestañas (Tabs) */
