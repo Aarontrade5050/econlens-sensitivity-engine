@@ -379,6 +379,8 @@ arquetipo = (
 _arc_color = _ARCHETYPE_COLORS.get(arquetipo, "#94a3b8")
 _arc_label = _ARCHETYPE_LABELS.get(arquetipo, arquetipo)
 _thresholds = ARCHETYPE_THRESHOLDS.get(arquetipo, ARCHETYPE_THRESHOLDS["ESTANDAR"])
+_vol_unit = "unidades" if arquetipo == "BIEN_DURADERO" else "kg"
+_price_unit = f"USD/{_vol_unit}"
 
 st.markdown(
     f'<p style="margin-top:4px;font-size:0.82em;">Arquetipo económico: '
@@ -508,7 +510,7 @@ with tab1:
             "Valor FOB Total",
             f"$ {total_fob:,.0f}" if total_fob is not None else "—",
         )
-        c3.metric("Volumen Total Registrado", f"{total_vol:,.0f} kg")
+        c3.metric("Volumen Total Registrado", f"{total_vol:,.0f} {_vol_unit}")
         c4.metric("Concentración Top 3 (FOB)", f"{top3_pct:.1f}%")
 
         st.write("")
@@ -524,7 +526,7 @@ with tab1:
                     pl.col("valor_fob_total").alias("US$ FOB Acumulado"),
                     pl.col("participacion_fob_pct").alias("% FOB"),
                     pl.col("participacion_fob_pct").alias("Progreso FOB"),
-                    pl.col("volumen_total").alias("Volumen (kg)"),
+                    pl.col("volumen_total").alias(f"Volumen ({_vol_unit})"),
                 ]
                 col_config = {
                     "US$ FOB Acumulado": st.column_config.NumberColumn(format="$ %,.0f"),
@@ -536,16 +538,16 @@ with tab1:
                         min_value=0,
                         max_value=100,
                     ),
-                    "Volumen (kg)": st.column_config.NumberColumn(format="%,d kg"),
+                    f"Volumen ({_vol_unit})": st.column_config.NumberColumn(format=f"%,d {_vol_unit}"),
                 }
             else:
                 select_cols += [
-                    pl.col("volumen_total").alias("Volumen Acumulado (kg)"),
+                    pl.col("volumen_total").alias(f"Volumen Acumulado ({_vol_unit})"),
                     pl.col("participacion_pct").alias("% Participación"),
                     pl.col("participacion_pct").alias("Barra de Cuota"),
                 ]
                 col_config = {
-                    "Volumen Acumulado (kg)": st.column_config.NumberColumn(format="%,d kg"),
+                    f"Volumen Acumulado ({_vol_unit})": st.column_config.NumberColumn(format=f"%,d {_vol_unit}"),
                     "% Participación": st.column_config.NumberColumn(format="%.1f%%"),
                     "Barra de Cuota": st.column_config.ProgressColumn(
                         "Progreso",
@@ -579,15 +581,15 @@ with tab2:
                     country_df
                     .sort("volumen_total", descending=True)
                     .select(["pais", "volumen_total", "precio_promedio"])
-                    .rename({"pais": "País de Origen", "volumen_total": "Volumen (kg)", "precio_promedio": "Precio FOB USD/kg"})
+                    .rename({"pais": "País de Origen", "volumen_total": f"Volumen ({_vol_unit})", "precio_promedio": f"Precio FOB {_price_unit}"})
                 )
                 st.dataframe(
-                    display_country.to_pandas(), 
-                    use_container_width=True, 
+                    display_country.to_pandas(),
+                    use_container_width=True,
                     hide_index=True,
                     column_config={
-                        "Volumen (kg)": st.column_config.NumberColumn(format="%,d kg"),
-                        "Precio FOB USD/kg": st.column_config.NumberColumn(format="$ %,.4f")
+                        f"Volumen ({_vol_unit})": st.column_config.NumberColumn(format=f"%,d {_vol_unit}"),
+                        f"Precio FOB {_price_unit}": st.column_config.NumberColumn(format="$ %,.4f")
                     }
                 )
 
@@ -601,15 +603,15 @@ with tab2:
                     route_df
                     .sort("volumen_total", descending=True)
                     .select(["aduana", "volumen_total", "precio_promedio"])
-                    .rename({"aduana": "Aduana", "volumen_total": "Volumen (kg)", "precio_promedio": "Precio FOB USD/kg"})
+                    .rename({"aduana": "Aduana", "volumen_total": f"Volumen ({_vol_unit})", "precio_promedio": f"Precio FOB {_price_unit}"})
                 )
                 st.dataframe(
-                    display_route.to_pandas(), 
-                    use_container_width=True, 
+                    display_route.to_pandas(),
+                    use_container_width=True,
                     hide_index=True,
                     column_config={
-                        "Volumen (kg)": st.column_config.NumberColumn(format="%,d kg"),
-                        "Precio FOB USD/kg": st.column_config.NumberColumn(format="$ %,.4f")
+                        f"Volumen ({_vol_unit})": st.column_config.NumberColumn(format=f"%,d {_vol_unit}"),
+                        f"Precio FOB {_price_unit}": st.column_config.NumberColumn(format="$ %,.4f")
                     }
                 )
 
@@ -626,18 +628,18 @@ with tab2:
                 .select(["actor", "precio_min", "precio_max", "spread_pct"])
                 .rename({
                     "actor": "Importador",
-                    "precio_min": "Precio Mín (USD/kg)",
-                    "precio_max": "Precio Máx (USD/kg)",
+                    "precio_min": f"Precio Mín ({_price_unit})",
+                    "precio_max": f"Precio Máx ({_price_unit})",
                     "spread_pct": "Spread (%)",
                 })
             )
             st.dataframe(
-                display_spread.to_pandas(), 
-                use_container_width=True, 
+                display_spread.to_pandas(),
+                use_container_width=True,
                 hide_index=True,
                 column_config={
-                    "Precio Mín (USD/kg)": st.column_config.NumberColumn(format="$ %,.4f"),
-                    "Precio Máx (USD/kg)": st.column_config.NumberColumn(format="$ %,.4f"),
+                    f"Precio Mín ({_price_unit})": st.column_config.NumberColumn(format="$ %,.4f"),
+                    f"Precio Máx ({_price_unit})": st.column_config.NumberColumn(format="$ %,.4f"),
                     "Spread (%)": st.column_config.NumberColumn(format="%,.2f%%")
                 }
             )
@@ -691,11 +693,11 @@ with tab3:
                 vol_price = (
                     df_hs.group_by("periodo")
                     .agg([
-                        pl.col("volumen").sum().alias("Volumen Total (kg)"),
+                        pl.col("volumen").sum().alias(f"Volumen Total ({_vol_unit})"),
                         (
                             (pl.col("precio") * pl.col("volumen")).sum()
                             / pl.col("volumen").sum()
-                        ).round(4).alias("Precio Ponderado (USD/kg)"),
+                        ).round(4).alias(f"Precio Ponderado ({_price_unit})"),
                     ])
                     .sort("periodo")
                 )
@@ -714,7 +716,7 @@ with tab3:
                 )
 
                 # Gráfico 1: Volumen (Forzado de comas en el eje Y y Hover)
-                fig = px.line(df_plot, x="periodo", y="Volumen Total (kg)", markers=True)
+                fig = px.line(df_plot, x="periodo", y=f"Volumen Total ({_vol_unit})", markers=True)
                 fig.update_traces(
                     line=dict(width=3, color="#38bdf8"), 
                     marker=dict(size=6),
@@ -727,7 +729,7 @@ with tab3:
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
                 # Gráfico 2: Precio (Forzado de comas y decimales en el eje Y y Hover)
-                fig2 = px.line(df_plot, x="periodo", y="Precio Ponderado (USD/kg)", markers=True)
+                fig2 = px.line(df_plot, x="periodo", y=f"Precio Ponderado ({_price_unit})", markers=True)
                 fig2.update_traces(
                     line=dict(width=3, color="#f59e0b"), 
                     marker=dict(size=6),
@@ -831,7 +833,7 @@ with tab5:
                     pl.col("proveedor").alias("Proveedor en Origen"),
                     pl.col("actor").alias("Importador Peruano"),
                     pl.col("valor_fob_total").alias("US$ FOB"),
-                    pl.col("volumen_total").alias("Masa Embarcada (kg)"),
+                    pl.col("volumen_total").alias(f"Masa Embarcada ({_vol_unit})"),
                     pl.col("participacion_pct").alias("% Suministro"),
                     pl.col("participacion_pct").alias("Participación"),
                 ]).to_pandas()
@@ -842,7 +844,7 @@ with tab5:
                     hide_index=True,
                     column_config={
                         "US$ FOB": st.column_config.NumberColumn(format="$ %,.0f"),
-                        "Masa Embarcada (kg)": st.column_config.NumberColumn(format="%,d kg"),
+                        f"Masa Embarcada ({_vol_unit})": st.column_config.NumberColumn(format=f"%,d {_vol_unit}"),
                         "% Suministro": st.column_config.NumberColumn(format="%.1f%%"),
                         "Participación": st.column_config.ProgressColumn(
                             "Participación de Suministro",
