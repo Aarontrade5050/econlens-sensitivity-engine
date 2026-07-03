@@ -2,7 +2,7 @@
 
 > Transforma datos de aduanas en métricas de riesgo estructural por producto e importador.
 
-EconoLens es un motor de análisis cuantitativo que procesa importaciones Perú–USA (SUNAT) y produce un **Score de Sensibilidad Económica (ISE)** por producto y actor, detectando shocks, volatilidad y cambios estructurales en precio y volumen.
+EconoLens es un motor de análisis cuantitativo que procesa importaciones (Perú) y produce un **Score de Sensibilidad Económica (ISE)** por producto y actor, detectando shocks, volatilidad y cambios estructurales en precio y volumen.
 
 ---
 
