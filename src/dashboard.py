@@ -71,7 +71,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("EconoLens — Motor de Inteligencia Arancelaria")
-st.caption("Análisis de Importaciones Perú–USA | Fuente: Datasur")
+st.caption("Análisis de Importaciones Perú | Fuente: Datasur")
 
 # -----------------------------------------------------------------------
 # Tabla de referencia HS (servidor — independiente del usuario)
