@@ -1,13 +1,13 @@
-polars
+polars==1.39.2
 duckdb
-pyarrow
+pyarrow==23.0.1
 openpyxl
 fastexcel
 fastapi
 uvicorn
 httpx
-streamlit
+streamlit==1.57.0
 plotly
-pandas
+pandas==3.0.1
 numpy
 pyyaml
