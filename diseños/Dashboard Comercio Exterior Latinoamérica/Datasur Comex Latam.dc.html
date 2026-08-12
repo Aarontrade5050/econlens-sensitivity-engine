@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  body { margin: 0; background: #F5F6FA; font-family: 'Source Sans 3', system-ui, sans-serif; color: #171A2B; }
+  * { box-sizing: border-box; }
+  a { color: #1B32CE; text-decoration: none; }
+  a:hover { color: #EF6C0B; }
+  ::selection { background: #FFD9BC; }
+</style>
+</helmet>
+<div style="display:grid; grid-template-columns:236px 1fr; min-height:100vh; align-items:stretch">
+
+  <aside style="background:#0E1A5C; color:#fff; padding:22px 0 24px; display:flex; flex-direction:column; gap:26px; position:sticky; top:0; height:100vh">
+    <div style="padding:0 20px; display:flex; flex-direction:column; gap:2px">
+      <div style="display:flex; align-items:baseline; gap:1px; font-size:24px; font-weight:700; letter-spacing:-0.4px">
+        <span style="color:#EF6C0B">D</span><span>atasur</span>
+      </div>
+      <div style="font-size:9.5px; letter-spacing:1.6px; text-transform:uppercase; color:#8E9AD8; font-weight:600">Comex Latam · Freemium</div>
+    </div>
+
+    <nav style="display:flex; flex-direction:column; gap:2px; padding:0 10px">
+      <sc-for list="{{ nav }}" as="item" hint-placeholder-count="4">
+        <div onClick="{{ item.go }}" style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:7px; cursor:pointer; font-size:14.5px; font-weight:500; color:#C9D0F2; background:transparent" style-hover="background:#1B2A78; color:#fff" data-active="{{ item.active }}">
+          <span style="width:6px; height:6px; border-radius:50%; background:#4C5EC9; flex:none" data-dot="{{ item.active }}"></span>
+          <span>{{ item.label }}</span>
+        </div>
+      </sc-for>
+    </nav>
+
+    <div style="padding:0 20px; display:flex; flex-direction:column; gap:9px">
+      <div style="font-size:10px; letter-spacing:1.4px; text-transform:uppercase; color:#7B88CC; font-weight:700">País</div>
+      <select value="{{ country }}" onChange="{{ setCountry }}" style="width:100%; background:#1B2A78; border:1px solid #35459B; color:#fff; font-family:inherit; font-size:14.5px; padding:9px 10px; border-radius:7px; appearance:none; cursor:pointer">
+        <sc-for list="{{ countries }}" as="c" hint-placeholder-count="15">
+          <option value="{{ c }}">{{ c }}</option>
+        </sc-for>
+      </select>
+    </div>
+
+    <div style="margin-top:auto; padding:0 20px; display:flex; flex-direction:column; gap:12px">
+      <div style="border-top:1px solid #26347F; padding-top:16px; font-size:12px; line-height:1.5; color:#98A3DC">
+        Nota metodológica: <span style="color:#fff">importaciones en CIF</span> en los países que así lo publican, <span style="color:#fff">exportaciones en FOB</span>. No se mezclan en un mismo total.
+      </div>
+      <div style="font-size:11.5px; color:#7B88CC; font-family:'JetBrains Mono', monospace">Ene 2024 – Dic 2025 · HS 6d</div>
+    </div>
+  </aside>
+
+  <main style="padding:26px 32px 56px; max-width:1500px">
+
+    <header style="display:flex; align-items:flex-end; justify-content:space-between; gap:24px; flex-wrap:wrap; margin-bottom:22px">
+      <div style="display:flex; flex-direction:column; gap:6px">
+        <div style="font-size:11px; letter-spacing:1.6px; text-transform:uppercase; color:#6C7599; font-weight:700">{{ screenKicker }}</div>
+        <h1 style="margin:0; font-size:30px; line-height:1.15; font-weight:700; letter-spacing:-0.7px; color:#0E1A5C">{{ screenTitle }}</h1>
+        <div style="font-size:14.5px; color:#5A6180; max-width:70ch; text-wrap:pretty">{{ screenSub }}</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px">
+        <sc-if value="{{ showFlowToggle }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex; background:#E7E9F3; padding:3px; border-radius:8px; gap:3px">
+            <sc-for list="{{ flowOptions }}" as="f" hint-placeholder-count="2">
+              <div onClick="{{ f.go }}" style="padding:7px 15px; border-radius:6px; font-size:13.5px; font-weight:600; cursor:pointer; color:#5A6180" style-hover="color:#0E1A5C" data-flow-active="{{ f.active }}">{{ f.label }}</div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <div style="display:flex; align-items:center; gap:7px; background:#fff; border:1px solid #E1E4EF; border-radius:8px; padding:8px 13px; font-size:13px; color:#5A6180">
+          <span style="width:7px; height:7px; border-radius:50%; background:#0E8A5F"></span>
+          <span>Dato al <span style="font-family:'JetBrains Mono', monospace; color:#171A2B">Dic 2025</span></span>
+        </div>
+      </div>
+    </header>
+
+    <sc-if value="{{ isPanorama }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex; flex-direction:column; gap:16px">
+
+        <div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:16px">
+          <sc-for list="{{ flowCards }}" as="card" hint-placeholder-count="2">
+            <section style="background:#fff; border:1px solid #E1E4EF; border-radius:12px; padding:22px 24px 20px; display:flex; flex-direction:column; gap:18px">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:12px">
+                <div style="display:flex; align-items:center; gap:9px">
+                  <span style="width:10px; height:10px; border-radius:3px; background:#1B32CE" data-swatch="{{ card.key }}"></span>
+                  <span style="font-size:15px; font-weight:700; color:#0E1A5C">{{ card.title }}</span>
+                  <span style="font-size:11px; font-family:'JetBrains Mono', monospace; color:#6C7599; border:1px solid #E1E4EF; border-radius:4px; padding:2px 6px">{{ card.basis }}</span>
+                </div>
+                <span style="font-size:12.5px; color:#6C7599">2025 vs 2024</span>
+              </div>
+
+              <div style="display:flex; align-items:flex-end; gap:18px">
+                <div style="display:flex; flex-direction:column; gap:2px">
+                  <div style="font-size:11px; letter-spacing:1.4px; text-transform:uppercase; color:#6C7599; font-weight:700">Crecimiento YoY</div>
+                  <div style="font-family:'JetBrains Mono', monospace; font-size:46px; font-weight:700; line-height:1; letter-spacing:-2px" data-tone="{{ card.tone }}">{{ card.yoy }}</div>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px; padding-bottom:5px; font-size:13.5px; color:#5A6180">
+                  <div>2025 <span style="font-family:'JetBrains Mono', monospace; color:#171A2B; font-weight:500">{{ card.v25 }}</span></div>
+                  <div>2024 <span style="font-family:'JetBrains Mono', monospace; color:#171A2B; font-weight:500">{{ card.v24 }}</span></div>
+                </div>
+              </div>
+
+              <div style="display:flex; align-items:flex-end; gap:2px; height:72px; border-bottom:1px solid #E7E9F3; padding-bottom:1px">
+                <sc-for list="{{ card.series }}" as="m" hint-placeholder-count="24">
+                  <div title="{{ m.label }}" style="flex:1; border-radius:2px 2px 0 0; background:#C7CEF0; min-height:2px" style-hover="opacity:0.75" data-bar="{{ m.year }}" data-h="{{ m.h }}"></div>
+                </sc-for>
+              </div>
+              <div style="display:flex; justify-content:space-between; font-size:11px; font-family:'JetBrains Mono', monospace; color:#8A91AD">
+                <span>ENE 2024</span><span>DIC 2025</span>
+              </div>
+            </section>
+          </sc-for>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1.45fr 1fr; gap:16px">
+          <section style="background:#fff; border:1px solid #E1E4EF; border-radius:12px; padding:20px 24px 8px">
+            <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:14px">
+              <h2 style="margin:0; font-size:16px; font-weight:700; color:#0E1A5C">Productos que mueven la aguja</h2>
+              <span style="font-size:12.5px; color:#6C7599">{{ topLabel }} · {{ flowLabel }}</span>
+            </div>
+            <table style="width:100%; border-collapse:collapse; font-size:13.5px">
+              <thead>
+                <tr style="text-align:left; color:#6C7599; font-size:11px; letter-spacing:1.1px; text-transform:uppercase">
+                  <th style="padding:0 8px 8px 0; font-weight:700">HS 6d</th>
+                  <th style="padding:0 8px 8px 0; font-weight:700">Descripción</th>
+                  <th style="padding:0 8px 8px 0; font-weight:700; text-align:right">2025</th>
+                  <th style="padding:0 0 8px 8px; font-weight:700; text-align:right">YoY</th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{ topHs }}" as="r" hint-placeholder-count="6">
+                  <tr onClick="{{ r.go }}" style="border-top:1px solid #EDEFF6; cursor:pointer" style-hover="background:#F7F8FD">
+                    <td style="padding:11px 8px 11px 0; font-family:'JetBrains Mono', monospace; color:#1B32CE; font-weight:500">{{ r.hs }}</td>
+                    <td style="padding:11px 8px 11px 0; color:#171A2B">{{ r.desc }}</td>
+                    <td style="padding:11px 8px 11px 0; text-align:right; font-family:'JetBrains Mono', monospace">{{ r.v25 }}</td>
+                    <td style="padding:11px 0 11px 8px; text-align:right; font-family:'JetBrains Mono', monospace; font-weight:700" data-tone="{{ r.tone }}">{{ r.yoy }}</td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </section>
+
+          <section style="background:#fff; border:1px solid #E1E4EF; border-radius:12px; padding:20px 24px 22px">
+            <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:16px">
+              <h2 style="margin:0; font-size:16px; font-weight:700; color:#0E1A5C">Socios principales</h2>
+              <span style="font-size:12.5px; color:#6C7599">{{ flowLabel }}</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:13px">
+              <sc-for list="{{ topPartners }}" as="p" hint-placeholder-count="6">
+                <div style="display:flex; flex-direction:column; gap:5px">
+                  <div style="display:flex; justify-content:space-between; font-size:13.5px">
+                    <span style="font-weight:500">{{ p.name }}</span>
+                    <span style="display:flex; gap:10px; align-items:baseline">
+                      <span style="font-family:'JetBrains Mono', monospace; color:#5A6180">{{ p.share }}</span>
+                      <span style="font-family:'JetBrains Mono', monospace; font-weight:700; font-size:12.5px" data-tone="{{ p.tone }}">{{ p.delta }}</span>
+                    </span>
+                  </div>
+                  <div style="height:7px; background:#EDEFF6; border-radius:4px; overflow:hidden">
+                    <div style="height:100%; background:#1B32CE; border-radius:4px; width:{{ p.w }}%"></div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isProducto }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex; flex-direction:column; gap:16px">
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
+          <select value="{{ hs }}" onChange="{{ setHs }}" style="background:#fff; border:1px solid #E1E4EF; color:#171A2B; font-family:inherit; font-size:14.5px; padding:10px 13px; border-radius:8px; min-width:420px; cursor:pointer">
+            <sc-for list="{{ hsOptions }}" as="o" hint-placeholder-count="12">
+              <option value="{{ o.hs }}">{{ o.label }}</option>
+            </sc-for>
+          </select>
+          <span style="font-size:13px; color:#6C7599">{{ country }} · {{ flowLabel }}</span>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:16px">
+          <sc-for list="{{ hsKpis }}" as="k" hint-placeholder-count="4">
+            <div style="background:#fff; border:1px solid #E1E4EF; border-radius:12px; padding:18px 20px; display:flex; flex-direction:column; gap:7px">
+              <div style="font-size:11px; letter-spacing:1.3px; text-transform:uppercase; color:#6C7599; font-weight:700">{{ k.label }}</div>
+              <div style="font-family:'JetBrains Mono', monospace; font-size:29px; font-weight:700; letter-spacing:-1px; line-height:1.05" data-tone="{{ k.tone }}">{{ k.value }}</div>
+              <div style="font-size:12.5px; color:#6C7599">{{ k.note }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px">
+          <section style="background:#fff; border:1px solid #E1E4EF; border-radius:12px; padding:20px 24px 22px">
+            <h2 style="margin:0 0 4px; font-size:16px; font-weight:700; color:#0E1A5C">Mezcla de socios</h2>
+            <div style="font-size:13px; color:#6C7599; margin-bottom:16px">Share 2025 y variación en puntos porcentuales frente a 2024</div>
+            <div style="display:flex; flex-direction:column; gap:13px">
+              <sc-for list="{{ hsPartners }}" as="p" hint-placeholder-count="7">
+                <div style="display:flex; flex-direction:column; gap:5px">
+                  <div style="display:flex; justify-content:space-between; font-size:13.5px">
+                    <span style="font-weight:500">{{ p.name }}</span>
+                    <span style="display:flex; gap:10px; align-items:baseline">
+                      <span style="font-family:'JetBrains Mono', monospace; color:#5A6180">{{ p.share }}</span>
+                      <span style="font-family:'JetBrains Mono', monospace; font-weight:700; font-size:12.5px" data-tone="{{ p.tone }}">{{ p.delta }}</span>
+                    </span>
+                  </div>
+                  <div style="height:7px; background:#EDEFF6; border-radius:4px; overflow:hidden">
+                    <div style="height:100%; background:#1B32CE; border-radius:4px; width:{{ p.w }}%"></div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+
+          <section style="background:#fff; border:1px solid #E1E4EF; border-radius:12px; padding:20px 24px 22px; display:flex; flex-direction:column; gap:16px">
+            <div>
+              <h2 style="margin:0 0 4px; font-size:16px; font-weight:700; color:#0E1A5C">Serie mensual</h2>
+              <div style="font-size:13px; color:#6C7599">Valor mensual declarado, 24 meses. Azul 2024, naranja 2025.</div>
+            </div>
+            <div style="display:flex; align-items:flex-end; gap:3px; height:190px; border-bottom:1px solid #E7E9F3">
+              <sc-for list="{{ hsSeries }}" as="m" hint-placeholder-count="24">
+                <div title="{{ m.label }}" style="flex:1; border-radius:3px 3px 0 0; background:#C7CEF0; min-height:2px" style-hover="opacity:0.75" data-bar="{{ m.year }}" data-h="{{ m.h }}"></div>
+              </sc-for>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:11px; font-family:'JetBrains Mono', monospace; color:#8A91AD">
+              <span>ENE 2024</span><span>DIC 2024</span><span>DIC 2025</span>
+            </div>
+          </section>
+        </div>
+
+        <section style="background:#fff; border:1px solid #E1E4EF; border-radius:12px; padding:20px 24px 8px">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:14px">
+            <h2 style="margin:0; font-size:16px; font-weight:700; color:#0E1A5C">Este producto en los 15 países</h2>
+            <span style="font-size:12.5px; color:#6C7599">{{ flowLabel }} · orden por valor 2025</span>
+          </div>
+          <table style="width:100%; border-collapse:collapse; font-size:13.5px">
+            <thead>
+              <tr style="text-align:left; color:#6C7599; font-size:11px; letter-spacing:1.1px; text-transform:uppercase">
+                <th style="padding:0 8px 8px 0; font-weight:700">País</th>
+                <th style="padding:0 8px 8px 0; font-weight:700; text-align:right">2025</th>
+                <th style="padding:0 8px 8px 0; font-weight:700; text-align:right">2024</th>
+                <th style="padding:0 8px 8px 0; font-weight:700; text-align:right">YoY</th>
+                <th style="padding:0 8px 8px 0; font-weight:700; text-align:right">HHI</th>
+                <th style="padding:0 0 8px 8px; font-weight:700">Socio dominante</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ hsByCountry }}" as="r" hint-placeholder-count="15">
+                <tr onClick="{{ r.go }}" style="border-top:1px solid #EDEFF6; cursor:pointer" style-hover="background:#F7F8FD" data-current="{{ r.current }}">
+                  <td style="padding:10px 8px 10px 0; font-weight:500">{{ r.country }}</td>
+                  <td style="padding:10px 8px 10px 0; text-align:right; font-family:'JetBrains Mono', monospace">{{ r.v25 }}</td>
+                  <td style="padding:10px 8px 10px 0; text-align:right; font-family:'JetBrains Mono', monospace; color:#6C7599">{{ r.v24 }}</td>
+                  <td style="padding:10px 8px 10px 0; text-align:right; font-family:'JetBrains Mono', monospace; font-weight:700" data-tone="{{ r.tone }}">{{ r.yoy }}</td>
+                  <td style="padding:10px 8px 10px 0; text-align:right; font-family:'JetBrains Mono', monospace; color:#5A6180">{{ r.hhi }}</td>
+                  <td style="padding:10px 0 10px 8px; color:#5A6180">{{ r.top }} <span style="font-family:'JetBrains Mono', monospace; color:#8A91AD">{{ r.topShare }}</span></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </section>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isConcentracion }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex; flex-direction:column; gap:16px">
+        <div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:16px">
+          <sc-for list="{{ hhiKpis }}" as="k" hint-placeholder-count="3">
+            <div style="background:#fff; border:1px solid #E1E4EF; border-radius:12px; padding:18px 20px; display:flex; flex-direction:column; gap:7px">
+              <div style="font-size:11px; letter-spacing:1.3px; text-transform:uppercase; color:#6C7599; font-weight:700">{{ k.label }}</div>
+              <div style="font-family:'JetBrains Mono', monospace; font-size:29px; font-weight:700; letter-spacing:-1px; line-height:1.05">{{ k.value }}</div>
+              <div style="font-size:12.5px; color:#6C7599">{{ k.note }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <section style="background:#fff; border:1px solid #E1E4EF; border-radius:12px; padding:20px 24px 22px">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px">
+            <h2 style="margin:0; font-size:16px; font-weight:700; color:#0E1A5C">Concentración por producto</h2>
+            <span style="font-size:12.5px; color:#6C7599">{{ country }} · {{ flowLabel }}</span>
+          </div>
+          <div style="font-size:13px; color:#6C7599; margin-bottom:18px; max-width:80ch; text-wrap:pretty">HHI sobre la participación de socios dentro de cada partida. Bajo 1.500 el mercado está repartido; sobre 2.500 depende de pocos socios.</div>
+
+          <div style="display:flex; flex-direction:column; gap:2px">
+            <div style="display:grid; grid-template-columns:88px minmax(0,1fr) 130px 96px 86px; gap:14px; font-size:11px; letter-spacing:1.1px; text-transform:uppercase; color:#6C7599; font-weight:700; padding-bottom:8px">
+              <div>HS 6d</div><div>Descripción</div><div>HHI</div><div style="text-align:right">Top-3</div><div style="text-align:right">Nivel</div>
+            </div>
+            <sc-for list="{{ hhiRows }}" as="r" hint-placeholder-count="12">
+              <div onClick="{{ r.go }}" style="display:grid; grid-template-columns:88px minmax(0,1fr) 130px 96px 86px; gap:14px; align-items:center; padding:11px 0; border-top:1px solid #EDEFF6; cursor:pointer; font-size:13.5px" style-hover="background:#F7F8FD">
+                <div style="font-family:'JetBrains Mono', monospace; color:#1B32CE; font-weight:500">{{ r.hs }}</div>
+                <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ r.desc }}</div>
+                <div style="display:flex; align-items:center; gap:9px">
+                  <div style="flex:1; height:8px; background:#EDEFF6; border-radius:4px; overflow:hidden">
+                    <div style="height:100%; border-radius:4px; background:#1B32CE; width:{{ r.w }}%" data-level="{{ r.level }}"></div>
+                  </div>
+                  <span style="font-family:'JetBrains Mono', monospace; font-size:12.5px; width:42px; text-align:right">{{ r.hhi }}</span>
+                </div>
+                <div style="text-align:right; font-family:'JetBrains Mono', monospace">{{ r.top3 }}</div>
+                <div style="text-align:right">
+                  <span style="font-size:11.5px; font-weight:700; padding:3px 8px; border-radius:20px; background:#EDEFF6; color:#5A6180" data-level="{{ r.level }}">{{ r.levelLabel }}</span>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+
+        <section style="border:1px dashed #F0A76A; background:#FEF6EF; border-radius:12px; padding:20px 24px; display:flex; align-items:center; justify-content:space-between; gap:24px; flex-wrap:wrap">
+          <div style="display:flex; flex-direction:column; gap:5px; max-width:74ch">
+            <div style="font-size:15px; font-weight:700; color:#0E1A5C">¿Por qué cambió la concentración de esta partida?</div>
+            <div style="font-size:13.5px; color:#5A6180; text-wrap:pretty">La descomposición por actor, el índice de sustitución de origen (ISE) y la elasticidad precio-volumen requieren la base transaccional completa.</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px">
+            <span style="font-size:12px; font-family:'JetBrains Mono', monospace; color:#A5701F">PREMIUM</span>
+            <div style="background:#EF6C0B; color:#fff; font-weight:700; font-size:14px; padding:11px 20px; border-radius:24px; cursor:pointer" style-hover="background:#D65D05">Ver en D-Comex</div>
+          </div>
+        </section>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isOperaciones }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex; flex-direction:column; gap:16px">
+        <section style="background:#fff; border:1px solid #E1E4EF; border-radius:12px; overflow:hidden">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 24px; border-bottom:1px solid #EDEFF6; flex-wrap:wrap">
+            <div style="display:flex; flex-direction:column; gap:3px">
+              <h2 style="margin:0; font-size:16px; font-weight:700; color:#0E1A5C">Registros agregados</h2>
+              <div style="font-size:13px; color:#6C7599">{{ country }} · {{ flowLabel }} · {{ hs }} {{ hsDesc }}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:9px; font-size:12.5px; color:#6C7599">
+              <span style="width:16px; height:9px; border-radius:2px; background:linear-gradient(90deg,#C7CEF0,#E7E9F3)"></span>
+              <span>Columnas de actor disponibles solo en premium</span>
+            </div>
+          </div>
+          <table style="width:100%; border-collapse:collapse; font-size:13.5px">
+            <thead>
+              <tr style="text-align:left; color:#6C7599; font-size:11px; letter-spacing:1.1px; text-transform:uppercase; background:#FAFBFE">
+                <th style="padding:11px 8px 11px 24px; font-weight:700">Fecha</th>
+                <th style="padding:11px 8px; font-weight:700">Partner</th>
+                <th style="padding:11px 8px; font-weight:700">HS 6d</th>
+                <th style="padding:11px 8px; font-weight:700; text-align:right">Valor USD</th>
+                <th style="padding:11px 8px; font-weight:700; text-align:right">Share mes</th>
+                <th style="padding:11px 8px; font-weight:700">Actor</th>
+                <th style="padding:11px 24px 11px 8px; font-weight:700">ID fiscal</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ opRows }}" as="r" hint-placeholder-count="12">
+                <tr style="border-top:1px solid #EDEFF6" style-hover="background:#FAFBFE">
+                  <td style="padding:11px 8px 11px 24px; font-family:'JetBrains Mono', monospace; color:#5A6180">{{ r.date }}</td>
+                  <td style="padding:11px 8px; font-weight:500">{{ r.partner }}</td>
+                  <td style="padding:11px 8px; font-family:'JetBrains Mono', monospace; color:#1B32CE">{{ r.hs }}</td>
+                  <td style="padding:11px 8px; text-align:right; font-family:'JetBrains Mono', monospace">{{ r.value }}</td>
+                  <td style="padding:11px 8px; text-align:right; font-family:'JetBrains Mono', monospace; color:#5A6180">{{ r.share }}</td>
+                  <td style="padding:11px 8px">
+                    <span style="text-decoration:line-through; text-decoration-color:#EF6C0B; text-decoration-thickness:1.5px; color:#A8AEC6; filter:blur(2.4px); user-select:none; font-family:'JetBrains Mono', monospace">{{ r.actor }}</span>
+                  </td>
+                  <td style="padding:11px 24px 11px 8px">
+                    <span style="text-decoration:line-through; text-decoration-color:#EF6C0B; text-decoration-thickness:1.5px; color:#A8AEC6; filter:blur(2.4px); user-select:none; font-family:'JetBrains Mono', monospace">{{ r.tax }}</span>
+                  </td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+          <div style="padding:16px 24px; background:#FAFBFE; border-top:1px solid #EDEFF6; display:flex; align-items:center; justify-content:space-between; gap:20px; flex-wrap:wrap">
+            <div style="font-size:13px; color:#6C7599">Mostrando 12 de <span style="font-family:'JetBrains Mono', monospace; color:#171A2B">{{ opTotal }}</span> registros del período. El freemium agrega por mes y socio.</div>
+            <div style="display:flex; align-items:center; gap:10px">
+              <span style="font-size:12px; font-family:'JetBrains Mono', monospace; color:#A5701F">PREMIUM</span>
+              <div style="background:#EF6C0B; color:#fff; font-weight:700; font-size:14px; padding:10px 18px; border-radius:24px; cursor:pointer" style-hover="background:#D65D05">Desbloquear actores</div>
+            </div>
+          </div>
+        </section>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px">
+          <section style="background:#fff; border:1px solid #E1E4EF; border-radius:12px; padding:20px 24px 22px">
+            <h2 style="margin:0 0 14px; font-size:16px; font-weight:700; color:#0E1A5C">Qué incluye cada plan</h2>
+            <div style="display:flex; flex-direction:column; gap:0">
+              <sc-for list="{{ planRows }}" as="p" hint-placeholder-count="6">
+                <div style="display:grid; grid-template-columns:minmax(0,1fr) 74px 74px; gap:10px; align-items:center; padding:10px 0; border-top:1px solid #EDEFF6; font-size:13.5px">
+                  <div>{{ p.feature }}</div>
+                  <div style="text-align:center; font-family:'JetBrains Mono', monospace; color:#5A6180">{{ p.free }}</div>
+                  <div style="text-align:center; font-family:'JetBrains Mono', monospace; color:#EF6C0B; font-weight:700">{{ p.pro }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+          <section style="background:#0E1A5C; border-radius:12px; padding:24px; color:#fff; display:flex; flex-direction:column; gap:14px; justify-content:center">
+            <div style="font-size:11px; letter-spacing:1.6px; text-transform:uppercase; color:#8E9AD8; font-weight:700">Metodología</div>
+            <div style="font-size:14.5px; line-height:1.6; color:#DDE2F7; text-wrap:pretty">Las importaciones se declaran en CIF en los países que lo publican así y las exportaciones en FOB. Los dos flujos se muestran lado a lado y nunca se suman en un mismo total; las comparaciones YoY se hacen siempre dentro del mismo flujo y la misma base de valoración.</div>
+            <div style="font-size:14.5px; line-height:1.6; color:#DDE2F7; text-wrap:pretty">Los 15 países cubren Ene 2024 – Dic 2025 con la misma profundidad, por lo que el interanual es comparable sin ajustes de rezago.</div>
+          </section>
+        </div>
+      </div>
+    </sc-if>
+
+  </main>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;topN&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:6,&quot;min&quot;:4,&quot;max&quot;:12,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Datos&quot;},&quot;showPremiumLocks&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Freemium&quot;}}">
+const COUNTRIES = ["Argentina","Bolivia","Brasil","Canadá","Chile","Colombia","Costa Rica","Ecuador","Honduras","México","Panamá","Paraguay","Perú","Uruguay","Estados Unidos"];
+const SIZE = {Argentina:0.55,Bolivia:0.09,Brasil:1.9,"Canadá":1.6,Chile:0.6,Colombia:0.5,"Costa Rica":0.12,Ecuador:0.2,Honduras:0.08,"México":1.7,"Panamá":0.14,Paraguay:0.1,"Perú":0.42,Uruguay:0.11,"Estados Unidos":3.2};
+const HS = [
+  ["270900","Aceites crudos de petróleo o de mineral bituminoso",320],
+  ["100590","Maíz, excepto para siembra",140],
+  ["120100","Habas de soja, incluso quebrantadas",180],
+  ["260300","Minerales de cobre y sus concentrados",210],
+  ["740311","Cátodos y secciones de cátodos de cobre refinado",95],
+  ["870323","Automóviles de cilindrada 1500–3000 cm³",160],
+  ["300490","Medicamentos dosificados para uso terapéutico",120],
+  ["851712","Teléfonos móviles y otras redes inalámbricas",130],
+  ["090111","Café sin tostar, sin descafeinar",70],
+  ["080390","Bananas frescas, excepto plátanos",45],
+  ["310210","Urea, incluso en disolución acuosa",38],
+  ["392321","Sacos y bolsas de polímeros de etileno",26]
+];
+const PARTNERS = ["China","Estados Unidos","Brasil","México","Alemania","Argentina","España","Corea del Sur","Japón","Chile","Perú","India","Países Bajos","Vietnam"];
+const ACTORS = ["COMERCIAL ANDINA SAC","GRUPO LOGISTICO DEL SUR SA","IMPORTADORA CENTRAL SRL","TRADING PACIFICO LTDA","AGROEXPORT HOLDINGS SA","DISTRIBUIDORA NORTE SAC","INDUSTRIAS UNIDAS SA","GLOBAL FREIGHT PARTNERS"];
+const MONTHS = ["ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"];
+
+function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function hash(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+
+function fmtUsd(v) {
+  if (v >= 1000) return "$" + (v / 1000).toFixed(2) + " B";
+  if (v >= 1) return "$" + v.toFixed(0) + " M";
+  return "$" + (v * 1000).toFixed(0) + " k";
+}
+function fmtPct(v, d) { const n = (v >= 0 ? "+" : "") + v.toFixed(d === undefined ? 1 : d); return n + "%"; }
+function tone(v) { return v > 0.5 ? "up" : v < -0.5 ? "down" : "flat"; }
+
+class Component extends DCLogic {
+  state = { screen: "panorama", country: "Perú", flow: "impo", hs: "270900" };
+
+  cell(country, flow, hs) {
+    const key = country + "|" + flow + "|" + hs;
+    if (!this._cache) this._cache = {};
+    if (this._cache[key]) return this._cache[key];
+    const r = rng(hash(key));
+    const meta = HS.find(h => h[0] === hs);
+    const affinity = 0.25 + r() * 1.75;
+    const v24 = (meta[2] * SIZE[country] * affinity) / 12 * 12 * (0.5 + r());
+    const g = (r() - 0.42) * 0.75;
+    const v25 = v24 * (1 + g);
+    const n = 5 + Math.floor(r() * 4);
+    const pool = PARTNERS.filter(p => p !== country);
+    const picked = [];
+    while (picked.length < n) { const p = pool[Math.floor(r() * pool.length)]; if (!picked.includes(p)) picked.push(p); }
+    let w25 = picked.map(() => 0.1 + Math.pow(r(), 1.7) * 3);
+    let w24 = w25.map(w => Math.max(0.05, w * (0.55 + r() * 0.9)));
+    const s25 = w25.reduce((a, b) => a + b, 0), s24 = w24.reduce((a, b) => a + b, 0);
+    const partners = picked.map((name, i) => ({ name, share25: (w25[i] / s25) * 100, share24: (w24[i] / s24) * 100 }))
+      .sort((a, b) => b.share25 - a.share25);
+    const hhi = Math.round(partners.reduce((a, p) => a + p.share25 * p.share25, 0));
+    const monthly = [];
+    for (let y = 0; y < 2; y++) {
+      const base = (y === 0 ? v24 : v25) / 12;
+      for (let m = 0; m < 12; m++) monthly.push({ year: y === 0 ? 2024 : 2025, m, v: base * (0.55 + r() * 0.9) });
+    }
+    const out = { v24, v25, yoy: (v25 / v24 - 1) * 100, partners, hhi, monthly };
+    this._cache[key] = out;
+    return out;
+  }
+
+  agg(country, flow) {
+    const rows = HS.map(h => { const c = this.cell(country, flow, h[0]); return { hs: h[0], desc: h[1], v24: c.v24, v25: c.v25, yoy: c.yoy, partners: c.partners, hhi: c.hhi, monthly: c.monthly }; });
+    const v24 = rows.reduce((a, r) => a + r.v24, 0), v25 = rows.reduce((a, r) => a + r.v25, 0);
+    const pmap = {};
+    rows.forEach(r => r.partners.forEach(p => {
+      pmap[p.name] = pmap[p.name] || { name: p.name, a25: 0, a24: 0 };
+      pmap[p.name].a25 += (p.share25 / 100) * r.v25;
+      pmap[p.name].a24 += (p.share24 / 100) * r.v24;
+    }));
+    const partners = Object.values(pmap).map(p => ({ name: p.name, share25: (p.a25 / v25) * 100, share24: (p.a24 / v24) * 100 })).sort((a, b) => b.share25 - a.share25);
+    const monthly = rows[0].monthly.map((_, i) => ({ year: rows[0].monthly[i].year, m: rows[0].monthly[i].m, v: rows.reduce((a, r) => a + r.monthly[i].v, 0) }));
+    return { rows, v24, v25, yoy: (v25 / v24 - 1) * 100, partners, monthly };
+  }
+
+  series(monthly) {
+    const max = Math.max(...monthly.map(m => m.v)) || 1;
+    return monthly.map(m => ({ year: m.year, h: Math.max(2, Math.round((m.v / max) * 100)), label: MONTHS[m.m] + " " + m.year + " · " + fmtUsd(m.v) }));
+  }
+
+  go(screen) { return () => this.setState({ screen }); }
+
+  renderVals() {
+    const { screen, country, flow, hs } = this.state;
+    const flowLabel = flow === "impo" ? "Importaciones" : "Exportaciones";
+    const topN = this.props.topN ?? 6;
+    const locks = this.props.showPremiumLocks ?? true;
+    const A = this.agg(country, flow);
+    const cur = this.cell(country, flow, hs);
+    const hsMeta = HS.find(h => h[0] === hs);
+
+    const screens = {
+      panorama: { kicker: country, title: "Panorama de comercio exterior", sub: "Crecimiento interanual del valor declarado, con importaciones y exportaciones lado a lado. Cada flujo se compara solo contra sí mismo." },
+      producto: { kicker: country + " · " + hs, title: hsMeta[1], sub: "Detalle de una partida a 6 dígitos: quién la abastece, cómo evolucionó mes a mes y cómo se ve en los otros 14 países." },
+      concentracion: { kicker: country + " · " + flowLabel, title: "Concentración de mercado", sub: "Qué partidas dependen de pocos socios y cuáles están repartidas. HHI y participación del top-3 por producto." },
+      operaciones: { kicker: country + " · " + flowLabel, title: "Registros y planes", sub: "Los agregados por mes y socio son abiertos. La identidad de los actores y sus métricas derivadas viven en premium." }
+    };
+    const S = screens[screen];
+
+    const topHs = A.rows.slice().sort((a, b) => b.v25 - a.v25).slice(0, topN).map(r => ({
+      hs: r.hs, desc: r.desc, v25: fmtUsd(r.v25), yoy: fmtPct(r.yoy), tone: tone(r.yoy),
+      go: () => this.setState({ hs: r.hs, screen: "producto" })
+    }));
+
+    const mkPartners = (list, n) => { const max = Math.max(...list.map(p => p.share25)) || 1; return list.slice(0, n).map(p => ({ name: p.name, share: p.share25.toFixed(1) + "%", delta: fmtPct(p.share25 - p.share24) + " pp", tone: tone(p.share25 - p.share24), w: Math.round((p.share25 / max) * 100) })); };
+
+    const hhiRows = A.rows.slice().sort((a, b) => b.hhi - a.hhi).map(r => {
+      const t3 = r.partners.slice(0, 3).reduce((a, p) => a + p.share25, 0);
+      const level = r.hhi >= 2500 ? "high" : r.hhi >= 1500 ? "mid" : "low";
+      return { hs: r.hs, desc: r.desc, hhi: r.hhi.toLocaleString("es"), top3: t3.toFixed(0) + "%", w: Math.min(100, Math.round((r.hhi / 6000) * 100)), level, levelLabel: level === "high" ? "Alta" : level === "mid" ? "Media" : "Baja", go: () => this.setState({ hs: r.hs, screen: "producto" }) };
+    });
+    const avgHhi = Math.round(A.rows.reduce((a, r) => a + r.hhi, 0) / A.rows.length);
+    const nHigh = A.rows.filter(r => r.hhi >= 2500).length;
+    const mostConc = hhiRows[0];
+
+    const hsByCountry = COUNTRIES.map(c => { const cc = this.cell(c, flow, hs); return { country: c, v25: fmtUsd(cc.v25), v24: fmtUsd(cc.v24), yoy: fmtPct(cc.yoy), tone: tone(cc.yoy), hhi: cc.hhi.toLocaleString("es"), top: cc.partners[0].name, topShare: cc.partners[0].share25.toFixed(0) + "%", current: c === country, sort: cc.v25, go: () => this.setState({ country: c }) }; })
+      .sort((a, b) => b.sort - a.sort);
+
+    const opR = rng(hash(country + flow + hs + "ops"));
+    const opRows = Array.from({ length: 12 }, (_, i) => {
+      const p = cur.partners[Math.floor(opR() * cur.partners.length)];
+      const mv = cur.v25 / 12 * (0.08 + opR() * 0.4);
+      return { date: (2025 + "-" + String(12 - Math.floor(i / 2)).padStart(2, "0") + "-" + String(2 + Math.floor(opR() * 26)).padStart(2, "0")), partner: p.name, hs, value: fmtUsd(mv), share: (mv / (cur.v25 / 12) * 100).toFixed(1) + "%", actor: ACTORS[Math.floor(opR() * ACTORS.length)], tax: "20" + String(100000000 + Math.floor(opR() * 800000000)).slice(0, 9) };
+    });
+
+    return {
+      country, hs, flowLabel, hsDesc: hsMeta[1],
+      countries: COUNTRIES,
+      setCountry: e => this.setState({ country: e.target.value }),
+      setHs: e => this.setState({ hs: e.target.value }),
+      hsOptions: HS.map(h => ({ hs: h[0], label: h[0] + " — " + h[1] })),
+      nav: [["panorama", "Panorama país"], ["producto", "Producto (HS)"], ["concentracion", "Concentración"], ["operaciones", "Registros y planes"]].map(([k, label]) => ({ label, active: screen === k, go: this.go(k) })),
+      screenKicker: S.kicker, screenTitle: S.title, screenSub: S.sub,
+      isPanorama: screen === "panorama", isProducto: screen === "producto", isConcentracion: screen === "concentracion", isOperaciones: screen === "operaciones",
+      showFlowToggle: screen !== "panorama",
+      flowOptions: [["impo", "Importaciones"], ["expo", "Exportaciones"]].map(([k, label]) => ({ label, active: flow === k, go: () => this.setState({ flow: k }) })),
+      flowCards: ["impo", "expo"].map(f => { const G = this.agg(country, f); return { key: f, title: f === "impo" ? "Importaciones" : "Exportaciones", basis: f === "impo" ? "CIF" : "FOB", yoy: fmtPct(G.yoy), tone: tone(G.yoy), v25: fmtUsd(G.v25), v24: fmtUsd(G.v24), series: this.series(G.monthly) }; }),
+      topLabel: "Top " + topN + " de 12 partidas",
+      topHs,
+      topPartners: mkPartners(A.partners, topN),
+      hsKpis: [
+        { label: "Crecimiento YoY", value: fmtPct(cur.yoy), tone: tone(cur.yoy), note: "2025 contra 2024, mismo flujo" },
+        { label: "Valor 2025", value: fmtUsd(cur.v25), tone: "flat", note: flow === "impo" ? "Base CIF" : "Base FOB" },
+        { label: "Socio dominante", value: cur.partners[0].share25.toFixed(0) + "%", tone: "flat", note: cur.partners[0].name },
+        { label: "HHI", value: cur.hhi.toLocaleString("es"), tone: "flat", note: cur.hhi >= 2500 ? "Mercado concentrado" : cur.hhi >= 1500 ? "Concentración media" : "Mercado repartido" }
+      ],
+      hsPartners: mkPartners(cur.partners, 8),
+      hsSeries: this.series(cur.monthly),
+      hsByCountry,
+      hhiKpis: [
+        { label: "HHI promedio", value: avgHhi.toLocaleString("es"), note: "Promedio simple de las 12 partidas" },
+        { label: "Partidas concentradas", value: nHigh + " / 12", note: "HHI sobre 2.500" },
+        { label: "Más concentrada", value: mostConc.hs, note: mostConc.desc }
+      ],
+      hhiRows,
+      opRows: locks ? opRows : opRows.map(r => ({ ...r, actor: r.actor, tax: r.tax })),
+      opTotal: (18000 + Math.floor(cur.v25 * 37)).toLocaleString("es"),
+      planRows: [
+        { feature: "Agregados por mes, socio y HS 6d", free: "Sí", pro: "Sí" },
+        { feature: "Crecimiento YoY y share por socio", free: "Sí", pro: "Sí" },
+        { feature: "HHI y top-3 por partida", free: "Sí", pro: "Sí" },
+        { feature: "Identidad de importadores y exportadores", free: "—", pro: "Sí" },
+        { feature: "Índice de sustitución de origen (ISE)", free: "—", pro: "Sí" },
+        { feature: "Riesgo por actor y elasticidad precio-volumen", free: "—", pro: "Sí" },
+        { feature: "Descarga transaccional y API", free: "—", pro: "Sí" }
+      ]
+    };
+  }
+
+  componentDidUpdate() { this.paint(); }
+  componentDidMount() { this.paint(); }
+  paint() {
+    const root = document.getElementById("dc-root") || document;
+    root.querySelectorAll("[data-active]").forEach(n => {
+      const on = n.getAttribute("data-active") === "true";
+      n.style.background = on ? "#1B2A78" : "transparent";
+      n.style.color = on ? "#fff" : "#C9D0F2";
+    });
+    root.querySelectorAll("[data-flow-active]").forEach(n => {
+      const on = n.getAttribute("data-flow-active") === "true";
+      n.style.background = on ? "#1B32CE" : "transparent";
+      n.style.color = on ? "#fff" : "#5A6180";
+      n.style.boxShadow = on ? "0 1px 2px rgba(14,26,92,0.2)" : "none";
+    });
+    root.querySelectorAll("[data-dot]").forEach(n => { n.style.background = n.getAttribute("data-dot") === "true" ? "#EF6C0B" : "#4C5EC9"; });
+    root.querySelectorAll("[data-tone]").forEach(n => {
+      const t = n.getAttribute("data-tone");
+      n.style.color = t === "up" ? "#0E8A5F" : t === "down" ? "#C9402F" : "#171A2B";
+    });
+    root.querySelectorAll("[data-bar]").forEach(n => {
+      n.style.height = (n.getAttribute("data-h") || 2) + "%";
+      n.style.background = n.getAttribute("data-bar") === "2025" ? "#EF6C0B" : "#C7CEF0";
+    });
+    root.querySelectorAll("[data-swatch]").forEach(n => { n.style.background = n.getAttribute("data-swatch") === "expo" ? "#EF6C0B" : "#1B32CE"; });
+    root.querySelectorAll("[data-level]").forEach(n => {
+      const l = n.getAttribute("data-level");
+      const c = l === "high" ? "#C9402F" : l === "mid" ? "#EF6C0B" : "#1B32CE";
+      if (n.tagName === "SPAN") { n.style.background = l === "high" ? "#FBEBE8" : l === "mid" ? "#FEF3E9" : "#EDEFF6"; n.style.color = c; }
+      else n.style.background = c;
+    });
+    root.querySelectorAll("[data-current]").forEach(n => {
+      const on = n.getAttribute("data-current") === "true";
+      n.style.background = on ? "#F1F3FC" : "";
+      n.style.boxShadow = on ? "inset 3px 0 0 #EF6C0B" : "";
+    });
+  }
+}
+
+</script>
+</body>
+</html>

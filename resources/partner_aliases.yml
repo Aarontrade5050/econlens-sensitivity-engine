@@ -1,0 +1,142 @@
+# EconoLens Freemium — Normalización de nombres de socio comercial
+#
+# Cada aduana escribe distinto al mismo socio: "Estados Unidos" (AR, CO),
+# "ESTADOS UNIDOS" (BR, MX), "U.S.A" (CL), "Estados Unidos de América" (HN),
+# "ESTADOS UNIDOS DE NORTEAMERICA" (PA). Sin unificarlos, la comparación entre
+# países del dashboard es incorrecta.
+#
+# El pipeline primero normaliza mecánicamente (mayúsculas, sin acentos, sin
+# puntuación, espacios colapsados) y luego aplica este archivo.
+
+# Sinónimos que no colapsan solos. Clave y valor van en forma normalizada.
+sinonimos:
+  "U S A": "ESTADOS UNIDOS"
+  "ESTADOS UNIDOS DE AMERICA": "ESTADOS UNIDOS"
+  "ESTADOS UNIDOS DE NORTEAMERICA": "ESTADOS UNIDOS"
+  "REPUBLICA POPULAR DE CHINA": "CHINA"
+  "REPUBLICA FEDERAL DE ALEMANIA": "ALEMANIA"
+  "COREA SUR": "COREA DEL SUR"
+  "COREA SUR REPUBLICA DE": "COREA DEL SUR"
+  "COREA DEL SUR REPUBLICA DE": "COREA DEL SUR"
+  "REPUBLICA DE COREA": "COREA DEL SUR"
+  "REPUBLICA DE COREA DEL SUR": "COREA DEL SUR"
+  "HOLANDA": "PAISES BAJOS"
+  "HOLANDA NEDERLAND": "PAISES BAJOS"
+  "PAISES BAJOS HOLANDA": "PAISES BAJOS"
+  "VIET NAM": "VIETNAM"
+  "THAILAND": "TAILANDIA"
+  "THAILANDIA": "TAILANDIA"
+  "EMIRATOS ARABES": "EMIRATOS ARABES UNIDOS"
+  "EMITATOS ARABES UNIDOS": "EMIRATOS ARABES UNIDOS"
+  "EMIRATOS ARABES UNIDOS E A U": "EMIRATOS ARABES UNIDOS"
+  "TAIWAN FORMOSA": "TAIWAN"
+  "REPUBLICA DE TAIWAN": "TAIWAN"
+  "RUSIA FEDERACION DE": "RUSIA"
+  "FEDERACION RUSIA": "RUSIA"
+  "REPUBLICA ISLAMICA DE IRAN": "IRAN"
+  "SUDAFRICA REPUBLICA DE": "SUDAFRICA"
+  "REPUBLICA DE ESLOVAQUIA": "ESLOVAQUIA"
+  "REPUBLICA ESLOVACA": "ESLOVAQUIA"
+  "REPUBLICA ARABE SIRIA": "SIRIA"
+  "MALAYSIA": "MALASIA"
+  "CAMBODIA": "CAMBOYA"
+  "JORDAN": "JORDANIA"
+  "KAZAKHSTAN": "KAZAJISTAN"
+  "KAZAJSTAN": "KAZAJISTAN"
+  "KASAJSTAN": "KAZAJISTAN"
+  "TURMENISTAN": "TURKMENISTAN"
+  "NUEVA ZELANDIA": "NUEVA ZELANDA"
+  "UCRAINA": "UCRANIA"
+  "CROACIA HRVATSKA": "CROACIA"
+  "TRINIDAD TOBAGO": "TRINIDAD Y TOBAGO"
+  "SURINAM": "SURINAME"
+  "KENYA": "KENIA"
+  "ISLAS MAURICIO": "MAURICIO"
+  "TERRITORIO AUTONOMOS DE PALESTINA": "PALESTINA"
+  "ZAIRE": "REPUBLICA DEMOCRATICA DEL CONGO"
+  "REPUBLIC DEL CONGO": "CONGO"
+  "VIRGENES DE LOS ESTADOS UNIDOS ISLAS": "ISLAS VIRGENES DE LOS ESTADOS UNIDOS"
+  "CAIMAN ISLAS": "ISLAS CAIMAN"
+
+# Socio ausente o no informado por la aduana. Se agrupa en un solo bucket
+# visible en vez de descartarse: en Argentina es el 14% del valor declarado.
+no_declarado:
+  - "PAIS NO DETERMINADO"
+  - "PAIS DESCONOCIDO"
+  - "ORIGEN O DESTINO NO PRECISADO"
+  - "NO DECLARADOS OTROS PAISES"
+
+# Zonas francas y regímenes especiales: se declaran como socio pero no son
+# países. Se agrupan para no contaminar el ranking de socios comerciales.
+# `patron` se evalúa sobre el nombre ya normalizado.
+regimen_especial:
+  patron: "^(?:ZONA|ZON |ZF|Z F )"
+  nombres:
+    - "AREA ADUANERA ESPECIAL DE TIERRA DEL FUEGO"
+    - "MAR TERRITORIAL ARGENTINO Y O ZONA ECONOMICA EXCLUSIVA"
+    - "RANCHO DE NAVES"
+    - "COMBUSTIBLES Y LUBRICANTES"
+    - "POSESION ESTADOUNIDENSE EN AMERICA"
+
+# Etiquetas de los buckets.
+etiquetas:
+  no_declarado: "No declarado"
+  regimen_especial: "Zona franca / régimen especial"
+
+# Nombre de presentación. Solo hace falta declarar aquí los casos donde el
+# Title Case automático del nombre normalizado sale mal: acentos y conectores.
+display:
+  "ESPANA": "España"
+  "JAPON": "Japón"
+  "MEXICO": "México"
+  "PERU": "Perú"
+  "CANADA": "Canadá"
+  "BELGICA": "Bélgica"
+  "TURQUIA": "Turquía"
+  "TAIWAN": "Taiwán"
+  "IRAN": "Irán"
+  "PAISES BAJOS": "Países Bajos"
+  "SUDAFRICA": "Sudáfrica"
+  "PANAMA": "Panamá"
+  "HUNGRIA": "Hungría"
+  "RUMANIA": "Rumanía"
+  "PAKISTAN": "Pakistán"
+  "BAHREIN": "Bahréin"
+  "TUNEZ": "Túnez"
+  "LIBANO": "Líbano"
+  "CAMERUN": "Camerún"
+  "HAITI": "Haití"
+  "GABON": "Gabón"
+  "OMAN": "Omán"
+  "ETIOPIA": "Etiopía"
+  "UZBEKISTAN": "Uzbekistán"
+  "TURKMENISTAN": "Turkmenistán"
+  "KAZAJISTAN": "Kazajistán"
+  "SANTA LUCIA": "Santa Lucía"
+  "REPUBLICA DOMINICANA": "República Dominicana"
+  "REPUBLICA CHECA": "República Checa"
+  "REPUBLICA DEMOCRATICA DEL CONGO": "República Democrática del Congo"
+  "TRINIDAD Y TOBAGO": "Trinidad y Tobago"
+  "COSTA DE MARFIL": "Costa de Marfil"
+  "ANTIGUA Y BARBUDA": "Antigua y Barbuda"
+  "BOSNIA Y HERZEGOVINA": "Bosnia y Herzegovina"
+  "GUINEA ECUATORIAL": "Guinea Ecuatorial"
+  "ISLAS VIRGENES DE LOS ESTADOS UNIDOS": "Islas Vírgenes de los Estados Unidos"
+  "ISLAS CAIMAN": "Islas Caimán"
+  "ISLAS MARSHALL": "Islas Marshall"
+  "BONAIRE SAN EUSTAQUIO Y SABA": "Bonaire, San Eustaquio y Saba"
+  "GEORGIA DEL SUR Y LAS ISLAS SANDWICH DEL SUR": "Georgia del Sur y las Islas Sandwich del Sur"
+  "HONG KONG": "Hong Kong"
+  "SRI LANKA": "Sri Lanka"
+  "EL SALVADOR": "El Salvador"
+  "COSTA RICA": "Costa Rica"
+  "PUERTO RICO": "Puerto Rico"
+  "ARABIA SAUDITA": "Arabia Saudita"
+  "EMIRATOS ARABES UNIDOS": "Emiratos Árabes Unidos"
+  "COREA DEL SUR": "Corea del Sur"
+  "REINO UNIDO": "Reino Unido"
+  "ESTADOS UNIDOS": "Estados Unidos"
+  "NUEVA ZELANDA": "Nueva Zelanda"
+  "SIERRA LEONA": "Sierra Leona"
+  "BURKINA FASO": "Burkina Faso"
+  "CABO VERDE": "Cabo Verde"

@@ -217,4 +217,15 @@ data/
 *.parquet
 *.xlsx
 
+# Los notebooks guardan filas reales en los outputs de las celdas (RUC y razón
+# social de importadores). Se trabajan en local y no se versionan.
+notebooks/
+
+# Artefactos de la capa freemium: las tablas derivadas sí se versionan porque
+# son lo que lee el dashboard desplegado. La base particionada no: pesa 58 MB,
+# se regenera con `python build_freemium.py` y engordaría el historial de git
+# en cada reconstrucción.
+!resources/freemium/*.parquet
+resources/freemium/base/
+
 pytest.ini

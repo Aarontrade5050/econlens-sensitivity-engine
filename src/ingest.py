@@ -23,6 +23,7 @@ _DTYPE_MAP: dict[str, type[pl.DataType]] = {
     "string": pl.String,
     "float": pl.Float64,
     "int": pl.Int64,
+    "date": pl.Date,
 }
 
 

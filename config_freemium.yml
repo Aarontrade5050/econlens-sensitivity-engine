@@ -1,0 +1,32 @@
+# EconoLens Freemium — Schema de ingesta estadística multi-país
+#
+# Fuente: data/freemium/{PAIS}/{IM|EX}/{AÑO}.parquet
+# El país y el flujo se derivan de la ruta, no de una columna.
+#
+# Solo se declaran las columnas que la capa freemium publica. Las columnas de
+# actor (company, id_company) existen en varios países pero se descartan por
+# construcción: no aparecen aquí, por lo tanto nunca llegan al agregado.
+#
+# dtypes: string | float | int | date
+
+schema:
+  required:
+    - name: "fecha"
+      aliases: ["FECHA", "date"]
+      dtype: date
+
+    - name: "partner"
+      aliases: ["pais_origen", "pais_destino", "PAIS_ORIGEN", "PAIS_DESTINO"]
+      dtype: string
+
+    - name: "hs_code"
+      aliases: ["cod_arancelario", "HS_CODE", "COD_ARANCELARIO", "partida"]
+      dtype: string
+
+    - name: "desc_aran"
+      aliases: ["desc_arancelaria", "DESC_ARAN", "descripcion", "desc_arancel"]
+      dtype: string
+
+    - name: "value"
+      aliases: ["cif", "fob", "CIF", "FOB", "valor", "VALUE"]
+      dtype: float

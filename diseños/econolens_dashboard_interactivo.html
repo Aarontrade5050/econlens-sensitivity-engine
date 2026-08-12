@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>EconoLens — Reporte de Inteligencia de Mercado</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        header {
+            border-bottom: 1px solid #1e293b;
+            padding-bottom: 20px;
+            margin-bottom: 25px;
+        }
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 0;
+            color: #38bdf8;
+            letter-spacing: -0.5px;
+        }
+        .subtitle {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        
+        /* Sistema de pestañas */
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #1e293b;
+            margin-bottom: 20px;
+            gap: 8px;
+        }
+        .tab-btn {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            padding: 10px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 6px 6px 0 0;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover {
+            color: #f8fafc;
+            background-color: #1e293b;
+        }
+        .tab-btn.active {
+            color: #38bdf8;
+            border-bottom: 2px solid #38bdf8;
+            background-color: rgba(56, 189, 248, 0.05);
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Grid de KPIs */
+        .kpi-grid {
+            display: table;
+            width: 100%;
+            margin-bottom: 25px;
+            border-spacing: 12px 0;
+        }
+        .kpi-card {
+            display: table-cell;
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            vertical-align: middle;
+        }
+        .kpi-title {
+            font-size: 12px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .kpi-value {
+            font-size: 22px;
+            font-weight: bold;
+            margin-top: 5px;
+            color: #f1f5f9;
+        }
+        
+        /* Layout de Bloques */
+        .dashboard-row {
+            display: table;
+            width: 100%;
+            margin-bottom: 20px;
+            border-spacing: 15px 0;
+        }
+        .dashboard-col {
+            display: table-cell;
+            width: 50%;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 20px;
+            vertical-align: top;
+        }
+        .full-width-panel {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        h3 {
+            font-size: 16px;
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #38bdf8;
+            border-left: 4px solid #38bdf8;
+            padding-left: 10px;
+        }
+
+        /* Tablas de datos estilizadas */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th {
+            background-color: #0f172a;
+            color: #94a3b8;
+            text-align: left;
+            padding: 10px;
+            font-weight: 600;
+            border-bottom: 2px solid #334155;
+        }
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #334155;
+            color: #e2e8f0;
+        }
+        tr:hover {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+        
+        /* Barras de progreso simples para emular gráficos de barras */
+        .progress-bar-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .progress-bar {
+            background: #334155;
+            height: 8px;
+            width: 100px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            background: #38bdf8;
+            height: 100%;
+        }
+        
+        /* Alertas */
+        .alert-row {
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 4px solid #ef4444;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        
+        /* Selector / Filtro simulado interactivo */
+        .filter-panel {
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        select {
+            background: #0f172a;
+            color: #f8fafc;
+            border: 1px solid #475569;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>EconoLens — Motor de Inteligencia Arancelaria</h1>
+        <div class="subtitle">Análisis Avanzado de la Partida Arancelaria Específica: <strong>1001991000 (Trigo Duro / Cereales)</strong></div>
+    </header>
+
+    <!-- Panel de Control Interactivo Simulable -->
+    <div class="filter-panel">
+        <div>
+            <label style="font-size: 13px; color: #94a3b8; margin-right: 8px;">Filtro de Análisis:</label>
+            <select id="partidaSelector" onchange="cambiarPartida(this.value)">
+                <option value="1001991000">Partida actual: 1001991000 (Trigo Duro)</option>
+                <option value="1001">Nivel Capítulo: Capítulo 10 (Cereales Completo)</option>
+            </select>
+        </div>
+        <div style="font-size: 12px; color: #64748b;">*Haga clic en las pestañas de abajo para navegar por los bloques solicitados.</div>
+    </div>
+
+    <!-- Pestañas -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab(event, 'competidores')">1. Competidores e Importadores</button>
+        <button class="tab-btn" onclick="switchTab(event, 'precios_rutas')">2. Análisis de Precios, Rutas y Origen</button>
+        <button class="tab-btn" onclick="switchTab(event, 'evolucion')">3. Evolución Temporal y Entidades</button>
+        <button class="tab-btn" onclick="switchTab(event, 'alertas')">4. Alertas de Shocks (ISE)</button>
+    </div>
+
+    <!-- PESTAÑA 1: COMPETIDORES -->
+    <div id="competidores" class="tab-content active">
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-title">Importador Líder</div>
+                <div class="kpi-value" style="color: #38bdf8;">ALICORP SAA</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">Volumen Total Registrado</div>
+                <div class="kpi-value">171,061,650 kg</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">Concentración de Mercado</div>
+                <div class="kpi-value" style="color: #f59e0b;">Alto (Oligopolio)</div>
+            </div>
+        </div>
+
+        <div class="full-width-panel">
+            <h3>¿Quiénes están importando la partida? — Cuota de Mercado (Market Share)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Importador (Actor)</th>
+                        <th>Volumen Acumulado</th>
+                        <th>Participación (%)</th>
+                        <th>Visualización Gráfica</th>
+                    </tr>
+                </thead>
+                <tbody>
+
+                    <tr>
+                        <td><strong>COMPAÑIA MOLINERA DEL CENTRO S.A./CIA. MOLINERA DEL CENTRO S</strong></td>
+                        <td>113,623,441 kg</td>
+                        <td>35.9%</td>
+                        <td>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 35.9%"></div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>ALICORP SAA</strong></td>
+                        <td>79,166,042 kg</td>
+                        <td>25.0%</td>
+                        <td>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 25.0%"></div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>CONTILATIN DEL PERU S.A</strong></td>
+                        <td>46,991,050 kg</td>
+                        <td>14.9%</td>
+                        <td>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 14.9%"></div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>MOLINO EL TRIUNFO S A</strong></td>
+                        <td>31,862,750 kg</td>
+                        <td>10.1%</td>
+                        <td>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 10.1%"></div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>MOLITALIA S.A</strong></td>
+                        <td>27,957,480 kg</td>
+                        <td>8.8%</td>
+                        <td>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 8.8%"></div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>MASTERBREAD S.A.</strong></td>
+                        <td>10,189,880 kg</td>
+                        <td>3.2%</td>
+                        <td>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 3.2%"></div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>CARGILL AMERICAS PERU S.R.L.</strong></td>
+                        <td>4,102,535 kg</td>
+                        <td>1.3%</td>
+                        <td>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 1.3%"></div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>BUNGE PERU S.A.C.</strong></td>
+                        <td>2,198,925 kg</td>
+                        <td>0.7%</td>
+                        <td>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 0.7%"></div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- PESTAÑA 2: PRECIOS Y RUTAS -->
+    <div id="precios_rutas" class="tab-content">
+        <div class="dashboard-row">
+            <!-- Columna Origen -->
+            <div class="dashboard-col">
+                <h3>Comparación de Precios según País de Origen</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>País de Origen</th>
+                            <th>Volumen Total</th>
+                            <th>Precio Promedio (FOB USD/KG)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+                        <tr>
+                            <td>🌐 Argentina</td>
+                            <td>31,943,680 kg</td>
+                            <td style="color: #38bdf8; font-weight: bold;">$0.2536</td>
+                        </tr>
+                        <tr>
+                            <td>🌐 Canadá</td>
+                            <td>92,412,442 kg</td>
+                            <td style="color: #38bdf8; font-weight: bold;">$0.2414</td>
+                        </tr>
+                        <tr>
+                            <td>🌐 Estados Unidos</td>
+                            <td>191,735,981 kg</td>
+                            <td style="color: #38bdf8; font-weight: bold;">$0.2410</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Columna Rutas -->
+            <div class="dashboard-col">
+                <h3>Comparación de Precios por Rutas de Ingreso</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ruta / Aduana de Ingreso</th>
+                            <th>Precio Promedio (FOB USD/KG)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+                        <tr>
+                            <td>🚢 Complejo Marítimo Matarani</td>
+                            <td style="color: #10b981; font-weight: bold;">$0.2414</td>
+                        </tr>
+                        <tr>
+                            <td>🚢 Puerto de Paita</td>
+                            <td style="color: #10b981; font-weight: bold;">$0.2573</td>
+                        </tr>
+                        <tr>
+                            <td>🚢 Puerto del Callao</td>
+                            <td style="color: #10b981; font-weight: bold;">$0.2420</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="full-width-panel">
+            <h3>Comparación de Niveles de Precio Máximo/Mínimo por Importador</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Importador</th>
+                        <th>Precio Mínimo Registrado</th>
+                        <th>Precio Máximo Registrado</th>
+                        <th>Brecha / Spread</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>ALICORP SAA</td>
+                        <td>$0.2420</td>
+                        <td>$0.2639</td>
+                        <td style="color: #ef4444;">8.3%</td>
+                    </tr>
+                    <tr>
+                        <td>COMPAÑÍA MOLINERA DEL CENTRO S.A.</td>
+                        <td>$0.2318</td>
+                        <td>$0.2495</td>
+                        <td style="color: #ef4444;">7.1%</td>
+                    </tr>
+                    <tr>
+                        <td>CARGILL AMERICAS PERU S.R.L.</td>
+                        <td>$0.2343</td>
+                        <td>$0.2520</td>
+                        <td style="color: #ef4444;">7.0%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- PESTAÑA 3: EVOLUCION TEMPORAL -->
+    <div id="evolucion" class="tab-content">
+        <div class="dashboard-row">
+            <div class="dashboard-col">
+                <h3>Número de Entidades que Importan a lo largo del tiempo</h3>
+                <p style="font-size: 13px; color: #94a3b8; margin-bottom: 15px;">Muestra si el mercado se está abriendo a nuevos competidores o consolidando.</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Mes analizado</th>
+                            <th>Cantidad de Empresas Activas</th>
+                            <th>Tendencia de Apertura</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Enero 2025</td><td>1 empresa</td><td><span style="color: #64748b;">Estable</span></td></tr>
+                        <tr><td>Febrero 2025</td><td>4 empresas</td><td><span style="color: #10b981;">▲ Expansión rápida</span></td></tr>
+                        <tr><td>Mayo 2025</td><td>6 empresas</td><td><span style="color: #10b981;">▲ Máximo histórico</span></td></tr>
+                        <tr><td>Septiembre 2025</td><td>3 empresas</td><td><span style="color: #ef4444;">▼ Consolidación</span></td></tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="dashboard-col">
+                <h3>Evolución de Volúmenes y Precios Totales</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Mes</th>
+                            <th>Volumen Total de la Partida</th>
+                            <th>Precio Promedio Ponderado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Ene 2025</td><td>7,689,290 kg</td><td>$0.2318</td></tr>
+                        <tr><td>Feb 2025</td><td>32,275,530 kg</td><td>$0.2494</td></tr>
+                        <tr><td>May 2025</td><td>39,812,110 kg</td><td>$0.2415</td></tr>
+                        <tr><td>Sep 2025</td><td>32,154,220 kg</td><td>$0.2462</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- PESTAÑA 4: ALERTAS Y SHOCKS -->
+    <div id="alertas" class="tab-content">
+        <h3>Alertas de Shocks Económicos e Índice de Sensibilidad (ISE)</h3>
+        <p style="font-size: 13px; color: #94a3b8; margin-bottom: 20px;">Detección automática de movimientos fuera de lo común (shocks de volumen o quiebres de precios).</p>
+        
+
+        <div class="alert-row">
+            <strong>⚠️ ALERTA DE SHOCK DETECTADA — Feb 2025</strong><br>
+            COMPA?IA MOLINERA DEL CENTRO S.A./CIA. MOLINERA DEL CENTRO S — shock compuesto detectado; incrementó volumen un 94.0% en 2025-02-01 (ISE Alto: 95.2) <br>
+            <span style="font-size:11px; color:#fca5a5;">Métrica: ISE Score 95.24 | Impacto: Alto</span>
+        </div>
+        <div class="alert-row">
+            <strong>⚠️ ALERTA DE SHOCK DETECTADA — May 2025</strong><br>
+            ALICORP SAA — shock compuesto detectado; redujo volumen un 30.8% en 2025-05-01 (ISE Alto: 74.6) <br>
+            <span style="font-size:11px; color:#fca5a5;">Métrica: ISE Score 74.59 | Impacto: Alto</span>
+        </div>
+        <div class="alert-row">
+            <strong>⚠️ ALERTA DE SHOCK DETECTADA — May 2025</strong><br>
+            COMPA?IA MOLINERA DEL CENTRO S.A./CIA. MOLINERA DEL CENTRO S — shock compuesto detectado; incrementó volumen un 35.4% en 2025-05-01 (ISE Alto: 81.3) <br>
+            <span style="font-size:11px; color:#fca5a5;">Métrica: ISE Score 81.28 | Impacto: Alto</span>
+        </div>
+        <div class="alert-row">
+            <strong>⚠️ ALERTA DE SHOCK DETECTADA — May 2025</strong><br>
+            MOLINO EL TRIUNFO S A — shock compuesto detectado; incrementó volumen un 27.5% en 2025-05-01 (ISE Alto: 70.2) <br>
+            <span style="font-size:11px; color:#fca5a5;">Métrica: ISE Score 70.20 | Impacto: Alto</span>
+        </div>
+        <div class="alert-row">
+            <strong>⚠️ ALERTA DE SHOCK DETECTADA — Jul 2025</strong><br>
+            MOLITALIA S.A — shock compuesto detectado; incrementó volumen un 135.2% en 2025-07-01 (ISE Alto: 100.0) <br>
+            <span style="font-size:11px; color:#fca5a5;">Métrica: ISE Score 100.00 | Impacto: Alto</span>
+        </div>
+        <div class="alert-row">
+            <strong>⚠️ ALERTA DE SHOCK DETECTADA — Aug 2025</strong><br>
+            ALICORP SAA — shock compuesto detectado; incrementó volumen un 420.5% en 2025-08-01 (ISE Alto: 100.0) <br>
+            <span style="font-size:11px; color:#fca5a5;">Métrica: ISE Score 100.00 | Impacto: Alto</span>
+        </div>
+        <div class="alert-row">
+            <strong>⚠️ ALERTA DE SHOCK DETECTADA — Aug 2025</strong><br>
+            COMPA?IA MOLINERA DEL CENTRO S.A./CIA. MOLINERA DEL CENTRO S — shock compuesto detectado; incrementó volumen un 21.2% en 2025-08-01 (ISE Alto: 66.2) <br>
+            <span style="font-size:11px; color:#fca5a5;">Métrica: ISE Score 66.20 | Impacto: Alto</span>
+        </div>
+        <div class="alert-row">
+            <strong>⚠️ ALERTA DE SHOCK DETECTADA — Aug 2025</strong><br>
+            MOLINO EL TRIUNFO S A — shock compuesto detectado; incrementó volumen un 25.5% en 2025-08-01 (ISE Alto: 69.2) <br>
+            <span style="font-size:11px; color:#fca5a5;">Métrica: ISE Score 69.23 | Impacto: Alto</span>
+        </div>
+        <div class="alert-row">
+            <strong>⚠️ ALERTA DE SHOCK DETECTADA — Aug 2025</strong><br>
+            MOLITALIA S.A — shock compuesto detectado; incrementó volumen un 66.2% en 2025-08-01 (ISE Alto: 88.8) <br>
+            <span style="font-size:11px; color:#fca5a5;">Métrica: ISE Score 88.78 | Impacto: Alto</span>
+        </div>
+        <div class="alert-row">
+            <strong>⚠️ ALERTA DE SHOCK DETECTADA — Sep 2025</strong><br>
+            COMPA?IA MOLINERA DEL CENTRO S.A./CIA. MOLINERA DEL CENTRO S — shock compuesto detectado; redujo volumen un 24.6% en 2025-09-01 (ISE Alto: 68.4) <br>
+            <span style="font-size:11px; color:#fca5a5;">Métrica: ISE Score 68.40 | Impacto: Alto</span>
+        </div>
+        <div class="alert-row">
+            <strong>⚠️ ALERTA DE SHOCK DETECTADA — Oct 2025</strong><br>
+            ALICORP SAA — shock compuesto detectado; redujo volumen un 60.2% en 2025-10-01 (ISE Alto: 95.8) <br>
+            <span style="font-size:11px; color:#fca5a5;">Métrica: ISE Score 95.82 | Impacto: Alto</span>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    function switchTab(evt, tabName) {
+        var i, tabcontent, tablinks;
+        tabcontent = document.getElementsByClassName("tab-content");
+        for (i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].className = tabcontent[i].className.replace(" active", "");
+        }
+        tablinks = document.getElementsByClassName("tab-btn");
+        for (i = 0; i < tablinks.length; i++) {
+            tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
+        document.getElementById(tabName).className += " active";
+        evt.currentTarget.className += " active";
+    }
+
+    function cambiarPartida(val) {
+        if(val === "1001") {
+            alert("EconoLens está calculando la agregación por CAPÍTULO 10 (Cereales completos). Las métricas se multiplicarán automáticamente por el volumen consolidado del sector.");
+        }
+    }
+</script>
+
+</body>
+</html>

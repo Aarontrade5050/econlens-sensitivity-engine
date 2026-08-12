@@ -22,6 +22,95 @@ st.set_page_config(
     layout="wide",
 )
 
+# -----------------------------------------------------------------------
+# Selector de módulo — pantalla de entrada
+#
+# La app arranca preguntando qué análisis se quiere, no pidiendo un archivo.
+# Freemium lee artefactos ya precomputados; premium corre el motor ISE sobre
+# el dataset transaccional que suba el usuario.
+# -----------------------------------------------------------------------
+
+def _render_landing() -> None:
+    st.markdown("""
+        <style>
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.landing-card) {
+            background:#111c30; border:1px solid #1e293b; border-radius:12px; padding:6px;
+        }
+        .landing-card { padding: 22px 24px 8px; }
+        .landing-card h3 { color:#ffffff !important; margin:0 0 6px; font-size:20px; }
+        .landing-card .tag { font-size:10px; letter-spacing:1.6px; text-transform:uppercase;
+            font-weight:700; }
+        .landing-card p { color:#94a3b8; font-size:14px; line-height:1.6; margin:10px 0 0; }
+        .landing-card li { color:#94a3b8; font-size:13.5px; line-height:1.7; }
+        </style>
+    """, unsafe_allow_html=True)
+
+    st.title("EconoLens")
+    st.caption("Plataforma de inteligencia de comercio exterior")
+    st.write("")
+
+    izq, der = st.columns(2, gap="large")
+
+    with izq, st.container():
+        st.markdown("""
+            <div class="landing-card">
+              <div class="tag" style="color:#38bdf8">Acceso abierto</div>
+              <h3>📊 Comex Latam</h3>
+              <p>Estadísticas de comercio exterior de 9 países de América Latina,
+                 2024–2025, a nivel de subpartida de 6 dígitos.</p>
+              <ul>
+                <li>Crecimiento interanual por país y producto</li>
+                <li>Participación de cada socio comercial</li>
+                <li>Concentración de origen y sustitución de proveedores</li>
+              </ul>
+            </div>
+        """, unsafe_allow_html=True)
+        if st.button("Entrar a Comex Latam", use_container_width=True, type="primary"):
+            st.session_state["view_mode"] = "freemium"
+            st.rerun()
+
+    with der, st.container():
+        st.markdown("""
+            <div class="landing-card">
+              <div class="tag" style="color:#ff8c00">Análisis detallado</div>
+              <h3>🔍 Motor ISE</h3>
+              <p>Análisis de riesgo estructural sobre data transaccional propia,
+                 a nivel de importador y partida de 10 dígitos.</p>
+              <ul>
+                <li>Índice de Sensibilidad Económica por actor</li>
+                <li>Elasticidad precio-volumen y volatilidad</li>
+                <li>Alertas de shock y matriz de proveedores</li>
+              </ul>
+            </div>
+        """, unsafe_allow_html=True)
+        if st.button("Entrar al Motor ISE", use_container_width=True):
+            st.session_state["view_mode"] = "premium"
+            st.rerun()
+
+
+def _boton_volver() -> None:
+    if st.sidebar.button("← Cambiar de módulo", use_container_width=True):
+        st.session_state["view_mode"] = None
+        st.rerun()
+
+
+if st.session_state.get("view_mode") is None:
+    _render_landing()
+    st.stop()
+
+if st.session_state["view_mode"] == "freemium":
+    from src.dashboard_freemium import render as _render_freemium
+
+    _boton_volver()
+    _render_freemium()
+    st.stop()
+
+_boton_volver()
+
+# -----------------------------------------------------------------------
+# Modo premium — motor ISE (flujo original, sin cambios)
+# -----------------------------------------------------------------------
+
 # Estilo global mínimo mediante Markdown (Mejora fuentes y contraste de pestañas)
 # Estilo global optimizado para Modo Oscuro Integrado (Datasur Palette)
 st.markdown("""
