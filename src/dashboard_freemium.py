@@ -74,6 +74,16 @@ def _pct(v: float | None, dec: int = 1) -> str:
     return "s/d" if v is None else f"{'+' if v >= 0 else ''}{v:.{dec}f}%"
 
 
+def _num(v: float | None, dec: int, sufijo: str = "", vacio: str = "s/d") -> str:
+    """Número formateado, o el texto de reemplazo si no hay dato.
+
+    Se calcula aparte y no dentro del f-string de la plantilla: anidar f-strings
+    con la misma comilla es error de sintaxis en Python 3.11, que es la versión
+    que corre Streamlit Cloud.
+    """
+    return vacio if v is None else f"{v:.{dec}f}{sufijo}"
+
+
 def _tone(v: float | None, umbral: float = 0.5) -> str:
     if v is None:
         return C["faint"]
@@ -381,16 +391,21 @@ def _producto(country: str, flow: str, cur: int, prev: int) -> None:
              .join(_f(_tbl("hhi"), hs_code=hs, flow=flow, anio=cur),
                    on=["country", "flow", "hs_code", "anio"], how="left")
              .sort("value", descending=True))
-    filas = "".join(
-        f'<tr style="background:{"#F7F8FD" if x["country"] == country else "transparent"}">'
-        f'<td style="font-weight:500">{_esc(PAISES.get(x["country"], x["country"]))}</td>'
-        f'<td class="fm-mono fm-r">{_usd(x["value"])}</td>'
-        f'<td class="fm-mono fm-r" style="color:{C["faint"]}">{_usd(x["value_prev"])}</td>'
-        f'<td class="fm-mono fm-r" style="font-weight:700;color:{_tone(x["yoy_pct"])}">{_pct(x["yoy_pct"])}</td>'
-        f'<td class="fm-mono fm-r">{"s/d" if x["n_socios"] is None else f"{x['n_socios']:.1f}"}</td>'
-        f'<td style="color:{C["muted"]}">{_esc(x["top_partner"] or "s/d")} '
-        f'<span class="fm-mono" style="color:#8A91AD">{"" if x["top_partner_pct"] is None else f"{x['top_partner_pct']:.0f}%"}</span></td></tr>'
-        for x in multi.iter_rows(named=True))
+    filas = []
+    for x in multi.iter_rows(named=True):
+        socios = _num(x["n_socios"], 1)
+        top_pct = _num(x["top_partner_pct"], 0, sufijo="%", vacio="")
+        fondo = "#F7F8FD" if x["country"] == country else "transparent"
+        filas.append(
+            f'<tr style="background:{fondo}">'
+            f'<td style="font-weight:500">{_esc(PAISES.get(x["country"], x["country"]))}</td>'
+            f'<td class="fm-mono fm-r">{_usd(x["value"])}</td>'
+            f'<td class="fm-mono fm-r" style="color:{C["faint"]}">{_usd(x["value_prev"])}</td>'
+            f'<td class="fm-mono fm-r" style="font-weight:700;color:{_tone(x["yoy_pct"])}">{_pct(x["yoy_pct"])}</td>'
+            f'<td class="fm-mono fm-r">{socios}</td>'
+            f'<td style="color:{C["muted"]}">{_esc(x["top_partner"] or "s/d")} '
+            f'<span class="fm-mono" style="color:#8A91AD">{top_pct}</span></td></tr>')
+    filas = "".join(filas)
     st.markdown(f"""<div class="fm-card">
         <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
           <h2 class="fm-h2">Este producto en los demás países</h2>
