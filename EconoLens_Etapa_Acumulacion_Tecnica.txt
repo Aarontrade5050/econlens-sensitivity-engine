@@ -872,3 +872,118 @@ SESIÓN 2026-07-02 – TAREAS COMPLETADAS
     - Decisión: verificar distribución de unidades por capítulo antes de implementar
 
 TOTAL TESTS: 147 – todos verdes (sin cambios en tests esta sesión)
+****************************************************************************************
+SESIÓN 2026-08-11 – FASE 11: CAPA FREEMIUM – CERRADA Y DESPLEGADA
+****************************************************************************************
+
+CONTEXTO
+    Los jefes recomendaron un modelo freemium tras ver el MVP: exponer analítica
+    estadística agregada de forma abierta y reservar el análisis por actor para premium.
+    La app deja de arrancar en un file uploader y abre en un selector de módulo.
+
+[✔] Selector de módulo (src/dashboard.py)
+    - st.session_state["view_mode"]: None → landing / "freemium" / "premium"
+    - Landing con dos tarjetas: Comex Latam (abierto) y Motor ISE (data propia)
+    - Botón "← Cambiar de módulo" en sidebar
+    - EL FLUJO PREMIUM QUEDÓ INTACTO — verificado ejecutándolo: las 5 tabs renderizan
+      y las alertas ISE salen con datos reales (Alicorp, Molitalia, Cía Molinera)
+
+[✔] Ingesta freemium (config_freemium.yml + src/ingest_freemium.py) — 18 tests
+    - data/freemium/{PAIS}/{IM|EX}/{AÑO}.parquet — país y flujo se derivan de la RUTA
+    - 9 países: AR, BO, BR, CL, CO, HN, MX, PA, UY (el diseño asumía 15 — el código
+      deriva la lista de lo que exista en disco, no la hardcodea)
+    - PA y UY solo tienen 2025 → su YoY es null, nunca 0
+    - 4 variantes de esquema entre fuentes, resueltas con el patrón `aliases`
+      (reutiliza load_config/resolve_columns/apply_schema de ingest.py sin tocarlo)
+    - hs_code llega como Int64 → cast a String + zfill(6), si no los capítulos 01-09
+      pierden el cero inicial
+    - CIF vs FOB NUNCA se suman: base_valor es parte de la clave de agregación
+    - Las columnas de actor (company, id_company) existen en 7 de 9 fuentes pero NO
+      se declaran en el config, así que nunca llegan al agregado
+
+[✔] Normalización de socios (resources/partner_aliases.yml + src/cleaning_freemium.py)
+    - 15 tests
+    - Problema: cada aduana escribe distinto al mismo país — "U.S.A" (CL),
+      "Estados Unidos de América" (HN), "ESTADOS UNIDOS DE NORTEAMERICA" (PA)
+    - Normalización mecánica (mayúsculas + sin acentos + sin puntuación) 974 → 620,
+      luego mapa curado de sinónimos → 468 socios distintos
+    - Buckets visibles, no descartados: "No declarado" (3.1% global, 14% en AR) y
+      "Zona franca / régimen especial" (0.8%)
+    - Códigos numéricos sin resolver ("042", "781") → No declarado
+    - TODO VECTORIZADO en Polars (replace_many/replace_all), sin map_elements:
+      son 7.2M filas y un UDF de Python fila por fila era inviable
+
+[✔] Métricas freemium (src/metrics_freemium.py) — 34 tests
+    - Solo sobre valor: sin cantidad no hay precio unitario, por lo tanto NO HAY
+      volatilidad, elasticidad ni ISE en freemium (eso es lo que vende premium)
+    - compute_country_yearly / compute_hs_yearly → valor anual + YoY
+    - compute_partner_share (por HS) / compute_partner_by_country (nivel país)
+    - compute_hhi → concentración + socio dominante + cobertura
+    - compute_monthly_by_hs / by_country → series de 24 meses
+    - compute_registros → detalle mes × socio de partidas relevantes
+    - Todas LazyFrame → LazyFrame, con test que fija ese contrato
+
+[✔] DECISIÓN ECONÓMICA: concentración como número efectivo de socios, no HHI crudo
+    - Diagnóstico con datos reales: el HHI mediano a 6 dígitos es 5.259, más del
+      doble del umbral "alta" (2.500). Con los cortes antimonopolio clásicos,
+      60.544 partidas salían "alta" vs 8.345 "media" y 2.829 "baja" — la pantalla
+      se veía toda roja y no discriminaba nada
+    - Causa: esos cortes miden EMPRESAS dentro de un mercado; acá se miden PAÍSES
+      proveedores de un producto. Distribución distinta, umbral prestado
+    - Solución: publicar 10.000/HHI = número equivalente de proveedores
+      (numbers-equivalent, índice estándar). "Se abastece de 1,5 países" se lee solo
+    - Cortes sobre socios efectivos: 1,5 / 3 / 6 → reparto 17/31/33/19%
+    - Filtro de relevancia: partidas ≥ 50M USD anuales (VALOR_MINIMO_RELEVANTE)
+      → 3.548 partidas con el 86% del comercio. Las descartadas son 16% del universo
+      y 0.78% del valor: concentradas por azar de muestreo, no por dependencia
+    - Se ordena por delta_socios (sustitución de origen 2024→2025), no por nivel:
+      es la lectura que un dashboard genérico no da y el gancho natural hacia premium
+
+[✔] Precómputo offline (build_freemium.py)
+    - ~20M filas crudas → 7.245.064 agregadas → 8 tablas derivadas (36.5 MB)
+    - Base particionada por país (58.7 MB) NO versionada: se regenera con el build
+      y engordaría el historial de git en cada reconstrucción
+    - partner_share acotada a partidas relevantes: 1.55M → 246K filas (26.9 → 4.6 MB)
+    - .gitignore con excepción: !resources/freemium/*.parquet + resources/freemium/base/
+
+[✔] Dashboard freemium (src/dashboard_freemium.py) — 10 smoke tests
+    - 4 pantallas: Panorama país / Producto (HS) / Concentración / Registros y planes
+    - Paleta portada del diseño Claude Design tal cual: fondo #F5F6FA, sidebar #0E1A5C,
+      acento #EF6C0B, dato #1B32CE, Source Sans 3 + JetBrains Mono
+    - Interactividad con widgets nativos + CSS; elementos visuales (tarjetas KPI,
+      sparklines, barras de share, tachado+blur) con HTML generado
+    - El .dc.html de Claude Design NO se puede incrustar: usa su propio runtime
+      (<x-dc>, sc-for, support.js) y sus onClick no pueden llamar a Python
+
+[✔] Verificación end-to-end real (no inspección de código)
+    - streamlit.testing.v1.AppTest ejecuta el render de verdad
+    - ENCONTRÓ UN BUG que la lectura no habría detectado: desc_aran viene nulo en
+      algunas partidas y se truncaba sin verificar → crash en Producto y Concentración
+    - 32 combinaciones (4 países × 2 flujos × 4 pantallas): 0 fallos
+    - Simulación de Streamlit Cloud escondiendo econolens.duckdb: las 4 pantallas
+      freemium renderizan sin DB y el premium pide archivo como corresponde
+    - Escaneo de fuga de identidad en los 8 artefactos: ninguna columna de actor,
+      ningún RUC, ninguna razón social
+
+[✔] Despliegue
+    - Commit d1e21c6 en main, 30 archivos, 37.51 MiB subidos
+    - notebooks/ destrackeado: guardaba 36 RUCs y razones sociales en outputs
+    - INCIDENTE: el merge borró notebooks/eda.ipynb del disco (el commit lo marca
+      como eliminado y los cambios sin commitear nunca llegaron a git).
+      Recuperado del blob colgante 77b0f715 vía git fsck --lost-found
+    - OneDrive bloqueó la carpeta diseños/ durante el checkout y dejó un index.lock
+      huérfano. Recomendación pendiente: mover el repo fuera de OneDrive
+
+TOTAL TESTS: 226 – todos verdes (147 previos intactos + 79 nuevos)
+
+PENDIENTES ANOTADOS
+    [~] 2024 de PA y UY — al cargarlos basta con correr build_freemium.py, el YoY
+        de esos países aparece solo sin tocar código
+    [~] AR inflado ~1.8x y MX expo subvaluado ~5x contra cifras oficiales — problema
+        de FUENTE, no del pipeline. BR/CL/CO/BO cuadran. Reclamar al proveedor
+    [~] use_container_width deprecado en 11 lugares de dashboard.py (8 preexistentes)
+        — rename mecánico a width='stretch'
+    [~] Commit 4a60f4f (marzo) conserva 3 RUCs en el historial del notebook
+        (Primax, Valero Perú, Mobil). Decisión: no reescribir historial por ahora
+    [~] Unidades volumétricas (M3, LT, GL) para COMMODITY — sigue postergado de la
+        sesión anterior

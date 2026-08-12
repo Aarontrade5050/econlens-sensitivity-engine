@@ -118,6 +118,27 @@ Para agregar nueva data:
 2. Depositar el parquet en `data/inbox/`
 3. Correr `python run.py` — la ingesta es automática
 
+## Flujo de ingesta freemium
+
+```
+data/freemium/{PAIS}/{IM|EX}/{AÑO}.parquet
+    → scan_freemium_tree() deriva país y flujo de la RUTA, no de una columna
+    → load_freemium_source() resuelve columnas por alias de config_freemium.yml
+    → normalize_hs6() castea Int64 → String y rellena a 6 dígitos
+    → normalize_partner() unifica grafías de socio (resources/partner_aliases.yml)
+    → aggregate_freemium() colapsa a periodo × país × flujo × hs × socio
+→ 8 tablas derivadas en resources/freemium/ + DuckDB
+```
+
+Para agregar un país o un año:
+1. Depositar el parquet en `data/freemium/{PAIS}/{IM|EX}/{AÑO}.parquet`
+2. Si el esquema no calza, agregar el nombre real bajo `aliases` en `config_freemium.yml`
+3. Correr `python build_freemium.py` — reconstruye todo desde cero, no es incremental
+
+El dashboard **no procesa nada por sesión**: lee los artefactos ya calculados.
+Si se toca `metrics_freemium.py`, hay que volver a correr el build para que el
+cambio se vea.
+
 ## Datos — Capa freemium (FASE 11)
 
 - Fuente: 9 países LATAM (AR, BO, BR, CL, CO, HN, MX, PA, UY), impo + expo, 2024–2025 — ~20M filas crudas
@@ -183,19 +204,38 @@ duckdb
 pyarrow
 openpyxl
 fastexcel
-pyyaml      # lectura de config.yml
+pyyaml      # lectura de config.yml y config_freemium.yml
 pandas      # solo para conversión inicial en notebook
 numpy
 fastapi
 uvicorn
 httpx       # requerido por FastAPI TestClient
 streamlit   # dashboard
-plotly      # gráficos en el dashboard
+plotly      # gráficos en el dashboard (solo premium; freemium dibuja con HTML/CSS)
 # pytest solo en desarrollo (no en requirements.txt de producción)
-# Para correr la API: uvicorn src.api:app --reload
-# Para correr el dashboard: streamlit run src/dashboard.py
-# Dashboard en producción: https://share.streamlit.io → repo Aarontrade5050/econlens-sensitivity-engine
+# La capa freemium no agregó dependencias nuevas
 ```
+
+## Comandos
+
+```
+python run.py                      # pipeline premium: inbox → DuckDB
+python build_freemium.py           # precómputo freemium: data/freemium/ → resources/freemium/
+streamlit run src/dashboard.py     # dashboard (ambos módulos)
+uvicorn src.api:app --reload       # API
+pytest -v                          # 226 tests
+```
+
+## Despliegue
+
+- Repo: `Aarontrade5050/econlens-sensitivity-engine`, branch `main`, main file `src/dashboard.py`
+- Panel: https://share.streamlit.io → *Manage app* para ver logs en vivo
+- En la nube **no existe** `econolens.duckdb`: el freemium lee sus parquet y el
+  premium cae al file uploader. Verificado escondiendo la DB local.
+- El repo pesa ~38 MB por los artefactos freemium, así que el primer clone del
+  deploy tarda más de lo habitual
+- `notebooks/` está gitignoreado: guardaba RUC y razón social de importadores en
+  los outputs de las celdas
 
 ## Regla principal del proyecto
 
