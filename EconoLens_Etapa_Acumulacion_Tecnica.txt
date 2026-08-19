@@ -1117,3 +1117,34 @@ TOTAL TESTS: 262 – todos verdes
     metodológicas normales entre fuentes (zonas francas, ajustes, reexportación).
 
     PENDIENTE: verificar BO, HN, PA y UY contra sus institutos.
+
+    CORRECCIÓN al bloque anterior: se verificaron AMBOS flujos en los 10 países,
+    no solo importaciones. El panorama es peor de lo documentado hasta ahora:
+
+    País        Expo nuestra  Oficial   Cob.   Impo nuestra  Oficial  Cob.
+    Brasil          337.0      337.0    100%       262.5     262.4    100%
+    Colombia         49.6       49.6    100%        64.1      64.1    100%
+    Perú             68.4       74.1     92%        54.9      55.0    100%
+    Chile            97.5      100.2     97%        75.0      78.0     96%
+    Bolivia           5.1       ~9.0     57% <-      9.8       9.9     99%
+    Uruguay          16.3       12.8    127% <-     22.6     ~13.5*  ~167% <-
+    Argentina       141.7       79.7    178% <-     95.4      60.8    157% <-
+    México          115.5      617.1     19% <-    223.1     625.3     36% <-
+    Honduras          5.9   5.7nac/11.0  def.       13.0      19.6     66% <-
+    Panamá            1.6   ~1.5 nac.    def.       15.4       s/v      —
+
+    (*la cifra oficial de impo de UY excluye combustibles)
+
+    La documentación previa decía "BR/CL/CO/BO cuadran" — ERA INCORRECTO para
+    Bolivia: sus exportaciones cubren solo el 57%.
+
+    Uruguay aparece INFLADO en ambos flujos. Hipótesis: las zonas francas
+    (Nueva Palmira, Punta Pereira, Fray Bentos) aparecen en nuestros socios y
+    las estadísticas oficiales las tratan distinto. Investigar.
+
+    Honduras y Panamá dependen de la DEFINICIÓN de exportación: ambos publican
+    exportación nacional y total (con maquila / reexportación de Zona Libre de
+    Colón) por separado. Nuestra cifra se parece a la nacional. Hay que decidir
+    cuál se publica y decirlo.
+
+    PRESENTABLES SIN ACLARACIÓN: solo BR, CO, PE y CL.

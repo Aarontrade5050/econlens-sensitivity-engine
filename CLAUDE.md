@@ -156,20 +156,34 @@ cambio se vea.
 - **Las pantallas de Producto, Concentración y Registros muestran el top 300 de cada país y flujo** (`partidas_relevantes`), con piso de 1M USD anuales para descartar ruido: 5.611 partidas con el **84.5% del comercio**. El panorama NO filtra: sus totales y su ranking de socios cubren el 100%.
   El corte es **relativo al propio país**, no absoluto: con un piso único de 50M USD, Brasil mostraba 1.210 partidas y Bolivia 33, y algún país-flujo se quedaba en 5. Ahora cada país muestra entre 416 y 600
 - **Se ordena por `delta_socios`** (sustitución de origen 2024→2025), no por nivel: es la lectura que un dashboard genérico no da y el gancho natural hacia premium
-- **Cobertura contra cifras oficiales (2024, verificado 2026-08-18)** — la fuente NO cubre igual a todos los países:
+- **Cobertura contra cifras oficiales (2024, verificado 2026-08-18, AMBOS flujos)** — la fuente NO cubre igual a todos los países:
 
-| País | Expo nuestra | Expo oficial | Cob. | Impo nuestra | Impo oficial | Cob. | Fuente oficial |
+| País | Expo nuestra | Expo oficial | Cob. | Impo nuestra | Impo oficial | Cob. | Fuente |
 |---|---|---|---|---|---|---|---|
 | Brasil | 337.0 | 337.0 | **100%** | 262.5 | 262.4 | **100%** | MDIC |
 | Colombia | 49.6 | 49.6 | **100%** | 64.1 | 64.1 | **100%** | DANE |
-| Chile | 97.5 | 100.2 | 97% | 75.0 | ~78.0 | 96% | Banco Central |
-| Perú | 68.4 | 74.7 | 92% | 54.9 | s/v | — | SUNAT / BCRP |
+| Perú | 68.4 | 74.1 | 92% | 54.9 | 55.0 | **100%** | BCRP / WITS |
+| Chile | 97.5 | 100.2 | 97% | 75.0 | 78.0 | 96% | Banco Central |
+| **Bolivia** | 5.1 | ~9.0 | **57%** ⚠ | 9.8 | 9.9 | 99% | INE / IBCE |
+| **Uruguay** | 16.3 | 12.8 | **127%** ⚠ | 22.6 | ~13.5* | **~167%** ⚠ | Uruguay XXI |
 | **Argentina** | 141.7 | 79.7 | **178%** ⚠ | 95.4 | 60.8 | **157%** ⚠ | INDEC |
 | **México** | 115.5 | 617.1 | **19%** ⚠ | 223.1 | 625.3 | **36%** ⚠ | INEGI |
-| BO, HN, PA, UY | | | s/v | | | s/v | pendiente |
+| Honduras | 5.9 | 5.7 nac. / 11.0 total | ⚠ def. | 13.0 | 19.6 | 66% ⚠ | BCH |
+| Panamá | 1.6 | ~1.5 nacional | ⚠ def. | 15.4 | s/v | — | — |
 
-  (miles de millones USD. "s/v" = sin verificar)
-- **AR está inflado ~1.8x y MX cubre menos de la mitad.** Es problema de FUENTE, no del pipeline: BR y CO calzan al 100% con el mismo código. **No presentar AR ni MX sin aclararlo**
+  (miles de millones USD. *la cifra oficial de impo de UY excluye combustibles, no es
+  directamente comparable. "def." = depende de la definición: HN y PA publican
+  exportación nacional y total con maquila/zona franca por separado, y nuestra cifra
+  se parece a la nacional)
+
+- **El pipeline NO es la causa**: Brasil y Colombia calzan al 100% en ambos flujos con
+  el mismo código. Los desvíos son de la fuente y de definiciones distintas.
+- **Cuatro países con desvío grave**: AR inflado ~1.8x, MX cubre menos de la mitad,
+  UY inflado (probablemente por zonas francas, que aparecen en los socios), BO con solo
+  el 57% de sus exportaciones.
+- **HN y PA dependen de la definición** de exportación (nacional vs. incluyendo
+  maquila/reexportación de Zona Libre de Colón). Hay que decidir cuál se publica.
+- **Solo BR, CO, PE y CL son presentables sin aclaración.**
 
 ## Datos — Capa premium
 
