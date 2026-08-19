@@ -137,6 +137,26 @@ def _desc(s: str | None, n: int) -> str:
 # ---------------------------------------------------------------------------
 
 @st.cache_data(show_spinner=False)
+def version_desplegada() -> str:
+    """Identificador corto del commit desplegado.
+
+    Sirve para saber de un vistazo si el servidor ya tomó el último push, sin
+    tener que adivinar mirando la interfaz. Se lee directo de .git en vez de
+    invocar el binario, que puede no existir en el contenedor.
+    """
+    git = Path(__file__).parent.parent / ".git"
+    try:
+        head = (git / "HEAD").read_text(encoding="utf-8").strip()
+        if head.startswith("ref: "):
+            sha = (git / head[5:]).read_text(encoding="utf-8").strip()
+        else:
+            sha = head
+        return sha[:7]
+    except OSError:
+        return ""
+
+
+@st.cache_data(show_spinner=False)
 def _tbl(nombre: str) -> pl.DataFrame:
     return pl.read_parquet(FREEMIUM_DIR / f"{nombre}.parquet")
 
@@ -653,6 +673,9 @@ def render() -> None:
           </div>
           <div class="fm-mono" style="font-size:11.5px;color:#7B88CC;margin-top:10px">
             {prev}–{cur} · HS 6 dígitos · {len(paises)} países
+          </div>
+          <div class="fm-mono" style="font-size:10.5px;color:#5A66A8;margin-top:4px">
+            build {version_desplegada() or "local"}
           </div>""", unsafe_allow_html=True)
 
     if "fm_flow" not in st.session_state:
