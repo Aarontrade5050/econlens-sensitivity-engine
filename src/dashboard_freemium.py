@@ -45,6 +45,30 @@ PANTALLAS = {
     "registros": "Registros y planes",
 }
 
+def palabras(flow: str) -> dict[str, str]:
+    """Vocabulario según el flujo.
+
+    En importaciones el socio es quien provee; en exportaciones es quien
+    compra. Usar "abastece" en la pantalla de exportaciones invierte el sentido
+    de la frase, así que el texto se arma con este diccionario y no a mano.
+    """
+    if flow == "impo":
+        return {
+            "flujo": "Importaciones", "base": "CIF",
+            "de_donde": "Le compra a", "socios": "proveedores",
+            "socio": "Principal proveedor", "col_socios": "Le compra a",
+            "mueve": "De dónde viene lo que más compra",
+            "cambio": "Productos que están cambiando de proveedor",
+        }
+    return {
+        "flujo": "Exportaciones", "base": "FOB",
+        "de_donde": "Le vende a", "socios": "compradores",
+        "socio": "Principal comprador", "col_socios": "Le vende a",
+        "mueve": "A dónde va lo que más vende",
+        "cambio": "Productos que están cambiando de comprador",
+    }
+
+
 MESES = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"]
 
 PLANES = [
@@ -79,14 +103,15 @@ def _pct(v: float | None, dec: int = 1) -> str:
     return "s/d" if v is None else f"{'+' if v >= 0 else ''}{v:.{dec}f}%"
 
 
-def _num(v: float | None, dec: int, sufijo: str = "", vacio: str = "s/d") -> str:
+def _num(v: float | None, dec: int, sufijo: str = "", vacio: str = "s/d",
+         prefijo: str = "") -> str:
     """Número formateado, o el texto de reemplazo si no hay dato.
 
     Se calcula aparte y no dentro del f-string de la plantilla: anidar f-strings
     con la misma comilla es error de sintaxis en Python 3.11, que es la versión
     que corre Streamlit Cloud.
     """
-    return vacio if v is None else f"{v:.{dec}f}{sufijo}"
+    return vacio if v is None else f"{prefijo}{v:.{dec}f}{sufijo}"
 
 
 def _tone(v: float | None, umbral: float = 0.5) -> str:
@@ -196,6 +221,9 @@ def _css() -> None:
       .fm-t td {{ padding:10px 8px 10px 0; border-top:1px solid {C['line']}; }}
       .fm-t tr:hover td {{ background:#F7F8FD; }}
       .fm-r {{ text-align:right; }}
+      /* `.fm-t th` es más específico que `.fm-r`, así que sin esta regla los
+         encabezados quedan a la izquierda y las celdas a la derecha. */
+      .fm-t th.fm-r {{ text-align:right; }}
       .fm-lock {{ text-decoration:line-through; text-decoration-color:{C['orange']};
           text-decoration-thickness:1.5px; color:#A8AEC6; filter:blur(2.6px); user-select:none; }}
     </style>""", unsafe_allow_html=True)
@@ -323,7 +351,7 @@ def _panorama(country: str, cur: int, prev: int) -> None:
         st.markdown(f"""<div class="fm-card">
             <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
               <h2 class="fm-h2">Productos que mueven la aguja</h2>
-              <span class="fm-note">Top 8 por valor</span>
+              <span class="fm-note">Los 8 más grandes de {cur}</span>
             </div>
             <table class="fm-t"><thead><tr><th>HS 6d</th><th>Descripción</th>
               <th class="fm-r">{cur}</th><th class="fm-r">YoY</th></tr></thead>
@@ -335,11 +363,12 @@ def _panorama(country: str, cur: int, prev: int) -> None:
         st.markdown(f"""<div class="fm-card">
             <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px">
               <h2 class="fm-h2">Socios principales</h2>
-              <span class="fm-note">{'Importaciones' if flow == 'impo' else 'Exportaciones'}</span>
+              <span class="fm-note">Participación de cada país en {cur}</span>
             </div>{_socios(socios, 8)}</div>""", unsafe_allow_html=True)
 
 
 def _producto(country: str, flow: str, cur: int, prev: int) -> None:
+    P = palabras(flow)
     hs_df = (_f(_tbl("hs_yearly"), country=country, flow=flow, anio=cur)
              .sort("value", descending=True))
     relevantes = set(_f(_tbl("partner_share"), country=country, flow=flow, anio=cur)["hs_code"].unique())
@@ -366,8 +395,8 @@ def _producto(country: str, flow: str, cur: int, prev: int) -> None:
     st.markdown(_kpis([
         ("Crecimiento YoY", _pct(r["yoy_pct"]), _tone(r["yoy_pct"]), f"{cur} contra {prev}, mismo flujo"),
         (f"Valor {cur}", _usd(r["value"]), C["ink"], "Base CIF" if flow == "impo" else "Base FOB"),
-        ("Socio dominante", f'{conc.get("top_partner_pct", 0):.0f}%', C["ink"], conc.get("top_partner") or "s/d"),
-        ("Se abastece de", "s/d" if n_socios is None else f"{n_socios:.1f} países",
+        (P["socio"], f'{conc.get("top_partner_pct", 0):.0f}%', C["ink"], conc.get("top_partner") or "s/d"),
+        ("Concentración", "s/d" if n_socios is None else f"≈ {n_socios:.1f} países",
          C["ink"], conc.get("categoria") or "sin socio identificado"),
     ]), unsafe_allow_html=True)
     st.write("")
@@ -377,9 +406,10 @@ def _producto(country: str, flow: str, cur: int, prev: int) -> None:
         socios = (_f(_tbl("partner_share"), country=country, flow=flow, hs_code=hs, anio=cur)
                   .sort("share_pct", descending=True).head(8).to_dicts())
         st.markdown(f"""<div class="fm-card">
-            <h2 class="fm-h2" style="margin-bottom:4px">Mezcla de socios</h2>
-            <div class="fm-note" style="margin-bottom:16px">Share {cur} y variación en puntos
-              porcentuales frente a {prev}</div>{_socios(socios, 8)}</div>""", unsafe_allow_html=True)
+            <h2 class="fm-h2" style="margin-bottom:4px">{P["col_socios"]}</h2>
+            <div class="fm-note" style="margin-bottom:16px">Cuánto representa cada país en {cur},
+              y cuánto subió o bajó respecto de {prev}</div>{_socios(socios, 8)}</div>""",
+            unsafe_allow_html=True)
 
     with der:
         serie = _f(_tbl("monthly_hs"), country=country, flow=flow, hs_code=hs).sort("periodo")
@@ -388,7 +418,7 @@ def _producto(country: str, flow: str, cur: int, prev: int) -> None:
                for x in serie.iter_rows(named=True)]
         st.markdown(f"""<div class="fm-card">
             <h2 class="fm-h2" style="margin-bottom:4px">Serie mensual</h2>
-            <div class="fm-note" style="margin-bottom:16px">Valor mensual declarado.
+            <div class="fm-note" style="margin-bottom:16px">Cuánto se movió cada mes.
               Naranja {cur}, azul {prev}.</div>{_barras(pts, 190, cur)}</div>""", unsafe_allow_html=True)
 
     st.write("")
@@ -398,7 +428,7 @@ def _producto(country: str, flow: str, cur: int, prev: int) -> None:
              .sort("value", descending=True))
     filas = []
     for x in multi.iter_rows(named=True):
-        socios = _num(x["n_socios"], 1)
+        socios = _num(x["n_socios"], 1, prefijo="≈ ")
         top_pct = _num(x["top_partner_pct"], 0, sufijo="%", vacio="")
         fondo = "#F7F8FD" if x["country"] == country else "transparent"
         filas.append(
@@ -413,18 +443,20 @@ def _producto(country: str, flow: str, cur: int, prev: int) -> None:
     filas = "".join(filas)
     st.markdown(f"""<div class="fm-card">
         <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
-          <h2 class="fm-h2">Este producto en los demás países</h2>
-          <span class="fm-note">{'Importaciones' if flow == 'impo' else 'Exportaciones'} · orden por valor {cur}</span>
+          <h2 class="fm-h2">El mismo producto en los demás países</h2>
+          <span class="fm-note">{P["flujo"]} · del que más mueve al que menos</span>
         </div>
         <table class="fm-t"><thead><tr><th>País</th><th class="fm-r">{cur}</th>
-          <th class="fm-r">{prev}</th><th class="fm-r">YoY</th><th class="fm-r">Socios</th>
-          <th>Socio dominante</th></tr></thead><tbody>{filas}</tbody></table></div>""",
+          <th class="fm-r">{prev}</th><th class="fm-r">Cambio</th>
+          <th class="fm-r">Concentración</th>
+          <th>{P["socio"]}</th></tr></thead><tbody>{filas}</tbody></table></div>""",
         unsafe_allow_html=True)
 
 
 def _concentracion(country: str, flow: str, cur: int, prev: int) -> None:
     from src.metrics_freemium import concentracion_relevante
 
+    P = palabras(flow)
     rel = (concentracion_relevante(_tbl("hhi").lazy(), _tbl("hs_yearly").lazy())
            .filter((pl.col("country") == country) & (pl.col("flow") == flow) & (pl.col("anio") == cur))
            .collect())
@@ -435,11 +467,12 @@ def _concentracion(country: str, flow: str, cur: int, prev: int) -> None:
     perdieron = rel.filter(pl.col("delta_socios") < -0.5).height
     dominante = rel.filter(pl.col("categoria") == "1 socio dominante").height
     st.markdown(_kpis([
-        ("Partidas analizadas", f"{rel.height:,}", C["ink"], f"con más de USD 50 M en {cur}"),
-        ("Socios en mediana", f'{rel["n_socios"].median():.1f}', C["ink"], "equivalente de países proveedores"),
-        ("Perdieron socios", f"{perdieron:,}", C["down"] if perdieron else C["ink"],
-         f"menos diversificadas que en {prev}"),
-        ("Un socio dominante", f"{dominante:,}", C["ink"], "dependen de un único origen"),
+        ("Productos analizados", f"{rel.height:,}", C["ink"], f"los que superan USD 50 M en {cur}"),
+        ("Típicamente reparte entre", f'≈ {rel["n_socios"].median():.1f} países',
+         C["ink"], f"la mitad usa menos {P['socios']} que eso"),
+        ("Concentraron más", f"{perdieron:,}", C["down"] if perdieron else C["ink"],
+         f"dependen de menos países que en {prev}"),
+        ("Dependen de uno solo", f"{dominante:,}", C["ink"], f"un país concentra casi todo"),
     ]), unsafe_allow_html=True)
     st.write("")
 
@@ -462,17 +495,17 @@ def _concentracion(country: str, flow: str, cur: int, prev: int) -> None:
 
     st.markdown(f"""<div class="fm-card">
         <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
-          <h2 class="fm-h2">Dónde se está sustituyendo el origen</h2>
-          <span class="fm-note">{PAISES.get(country, country)} · {'Importaciones' if flow == 'impo' else 'Exportaciones'}</span>
+          <h2 class="fm-h2">{P["cambio"]}</h2>
+          <span class="fm-note">{PAISES.get(country, country)} · {P["flujo"]}</span>
         </div>
         <div class="fm-note" style="margin-bottom:18px;max-width:82ch">
-          La concentración se expresa como el número equivalente de países que abastecen la
-          partida. Ordenado por cuántos socios perdió frente a {prev}: arriba, las partidas
-          que más concentraron su origen en un año.
+          "Concentración" es entre cuántos países se reparte el producto: cuanto más bajo,
+          más depende de unos pocos. Arriba están los que más se concentraron en un año.
         </div>
         <table class="fm-t"><thead><tr><th>HS 6d</th><th>Descripción</th>
-          <th class="fm-r">Valor {cur}</th><th>Se abastece de</th><th class="fm-r">Δ socios</th>
-          <th>Socio dominante</th></tr></thead><tbody>{"".join(filas)}</tbody></table></div>""",
+          <th class="fm-r">Valor {cur}</th><th>Concentración</th>
+          <th class="fm-r">Cambio</th>
+          <th>{P["socio"]}</th></tr></thead><tbody>{"".join(filas)}</tbody></table></div>""",
         unsafe_allow_html=True)
     st.write("")
 
@@ -560,15 +593,21 @@ def _registros(country: str, flow: str, cur: int) -> None:
     with der:
         st.markdown(f"""<div style="background:{C['navy']};border-radius:12px;padding:24px;
              display:flex;flex-direction:column;gap:14px;justify-content:center;height:100%">
-            <div class="fm-kicker" style="color:#8E9AD8">Metodología</div>
-            <div style="font-size:14.5px;line-height:1.6;color:#DDE2F7">Las importaciones se declaran
-              en CIF y las exportaciones en FOB. Los dos flujos se muestran lado a lado y nunca se
-              suman en un mismo total; las comparaciones interanuales se hacen siempre dentro del
-              mismo flujo y la misma base de valoración.</div>
-            <div style="font-size:14.5px;line-height:1.6;color:#DDE2F7">Cuando un país no tiene aún
-              el año base cargado, el crecimiento se muestra como <span class="fm-mono">s/d</span>
-              en vez de cero. El valor sin socio declarado se agrupa como
-              <span class="fm-mono">No declarado</span> y se excluye del cálculo de concentración.</div>
+            <div class="fm-kicker" style="color:#8E9AD8">Cómo leer estas cifras</div>
+            <div style="font-size:14.5px;line-height:1.65;color:#DDE2F7">
+              <b style="color:#fff">Compras y ventas no se suman.</b> Se declaran con criterios
+              distintos: lo que un país compra incluye flete y seguro, lo que vende no. Por eso van
+              siempre separadas, y cada una se compara solo contra sí misma.
+            </div>
+            <div style="font-size:14.5px;line-height:1.65;color:#DDE2F7">
+              <b style="color:#fff">"s/d" quiere decir que no hay dato.</b> Si falta el año anterior
+              no se puede calcular cuánto cambió, y mostrar 0% sería inventar un número.
+            </div>
+            <div style="font-size:14.5px;line-height:1.65;color:#DDE2F7">
+              <b style="color:#fff">"No declarado" es comercio sin país informado.</b> No se descarta
+              —se ve en las tablas— pero queda fuera del cálculo de concentración, porque no se
+              puede saber de cuántos países vino.
+            </div>
           </div>""", unsafe_allow_html=True)
 
 
@@ -594,7 +633,7 @@ def render() -> None:
         st.markdown(f"""
           <div style="display:flex;flex-direction:column;gap:2px;margin-bottom:22px">
             <div style="display:flex;align-items:baseline;font-size:24px;font-weight:700;letter-spacing:-0.4px">
-              <span style="color:{C['orange']}">E</span><span style="color:#fff">conoLens</span>
+              <span style="color:{C['orange']}">D</span><span style="color:#fff">atasur</span>
             </div>
             <div style="font-size:9.5px;letter-spacing:1.6px;text-transform:uppercase;
                  color:#8E9AD8;font-weight:600">Comex Latam · Freemium</div>
@@ -621,24 +660,25 @@ def render() -> None:
 
     titulos = {
         "panorama": ("Panorama de comercio exterior",
-                     "Crecimiento interanual del valor declarado, con importaciones y exportaciones "
-                     "lado a lado. Cada flujo se compara solo contra sí mismo."),
-        "producto": ("Detalle de partida",
-                     "Una subpartida de 6 dígitos: quién la abastece, cómo evolucionó mes a mes y "
-                     "cómo se ve en los demás países."),
-        "concentracion": ("Concentración de mercado",
-                          "Qué partidas dependen de pocos orígenes y cuáles están repartidas, "
-                          "ordenadas por cuánto cambiaron en el último año."),
+                     f"Cuánto compró y cuánto vendió el país en {cur}, y si eso subió o bajó "
+                     f"frente a {prev}. Compras y ventas se miden aparte."),
+        "producto": ("Detalle de un producto",
+                     "Con qué países comercia este producto, cómo se movió mes a mes y "
+                     "cómo se ve en los demás países de la región."),
+        "concentracion": ("De cuántos países depende cada producto",
+                          "Algunos productos vienen de un solo país y otros de muchos. "
+                          "Acá se ve cuáles se volvieron más dependientes en el último año."),
         "registros": ("Registros y planes",
-                      "Los agregados por mes y socio son abiertos. La identidad de los actores y "
-                      "sus métricas derivadas viven en premium."),
+                      "Los totales por mes y por país son abiertos. Saber qué empresa "
+                      "hizo cada operación requiere el plan premium."),
     }
     titulo, sub = titulos[pantalla]
 
     izq, der = st.columns([3, 1])
     with izq:
         st.markdown(
-            f'<div class="fm-kicker">{_esc(PAISES.get(country, country))}</div>'
+            f'<div class="fm-kicker" style="font-size:13px;letter-spacing:2px;'
+            f'color:{C["orange"]};margin-bottom:2px">{_esc(PAISES.get(country, country))}</div>'
             f'<h1 style="margin:2px 0 6px;font-size:30px;line-height:1.15;font-weight:700;'
             f'letter-spacing:-0.7px;color:{C["navy"]}">{titulo}</h1>'
             f'<div class="fm-sub">{sub}</div>', unsafe_allow_html=True)

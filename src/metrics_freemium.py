@@ -188,7 +188,9 @@ def compute_hhi(
         .sort(keys)
     )
 
-    sin_cobertura = pl.col("cobertura_pct") == 0
+    # Hay embarques declarados en 0: sin valor no hay reparto que medir, y
+    # dividir por ese total daba cobertura NaN y n_socios infinito.
+    sin_cobertura = (pl.col("cobertura_pct") == 0) | pl.col("cobertura_pct").is_nan()
     limpio = resumen.with_columns([
         pl.when(sin_cobertura).then(None).otherwise(pl.col("hhi")).alias("hhi"),
         pl.when(sin_cobertura).then(None).otherwise(pl.col("top3_pct")).alias("top3_pct"),

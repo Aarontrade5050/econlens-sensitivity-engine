@@ -987,3 +987,75 @@ PENDIENTES ANOTADOS
         (Primax, Valero Perú, Mobil). Decisión: no reescribir historial por ahora
     [~] Unidades volumétricas (M3, LT, GL) para COMMODITY — sigue postergado de la
         sesión anterior
+
+****************************************************************************************
+SESIÓN 2026-08-18 – PERÚ, BUG DEL CERO INICIAL Y AJUSTES DE INTERFAZ
+****************************************************************************************
+
+[✔] Décimo país: Perú (impo + expo, 2024 + 2025)
+    - Sus columnas ya calzaban con el esquema canónico: no hizo falta tocar aliases
+    - También se completaron 2024 de PA y UY → los 10 países tienen ambos años
+    - 40 fuentes, 8.5M filas agregadas (antes 32 fuentes, 7.2M)
+
+[✔] BUG GRAVE encontrado al revisar el esquema de Perú: el cero inicial de los
+    capítulos 01-09 corrompía la partida
+    - Las fuentes traen hs_code con el largo del código NACIONAL, no a 6 dígitos:
+      AR 11 (NCM+SIM), PA 12, PE/CO/HN 10, BR/CL/MX 8
+    - Al venir como Int64, los capítulos 01-09 pierden el cero inicial
+    - normalize_hs6 rellenaba a 6 y truncaba, pero rellenar a 6 NO repone un cero
+      perdido en un código de 11 dígitos
+    - Efecto: reclasificación silenciosa
+        01039200191 (porcinos) -> 103920 = cereales
+        07142090   (camote)    -> 714209 = piedras preciosas
+    - Alcance: 33% de las filas de expo de Chile, 21% de Colombia, 18% de Brasil.
+      Son los capítulos agrícolas, lo que más pesa en las expo de la región.
+      246 mil M USD, 7.1% del valor total
+    - Arreglo: inferir el largo nacional por MODA de la columna (no por máximo:
+      BO/impo/2025 tiene outliers de 12 sobre una base de 11) y anteponer el cero
+      a las filas con exactamente un dígito menos, antes de truncar a 6
+    - Validado contra resources/dim_partida.csv: 99.5% de las partidas resultantes
+      son subpartidas HS válidas, 98.97% del valor en códigos válidos
+    - Prueba económica: las top expo agrícolas de Chile ahora salen bien
+      (cerezas 080929, salmón 030441/030481)
+    - LECCIÓN: lo delató el CONTENIDO de las descripciones ("PARA REPRODUCCIÓN...
+      PUROS POR CRUZA" no puede ser cereal), no una excepción ni un test
+
+[✔] Bug: n_socios = infinito en 36 partidas
+    - Causa: partidas declaradas con valor 0 (embarques a precio cero) → división
+      por cero → cobertura NaN → 10000/0 = inf
+    - Arreglo: guarda por cobertura NaN además de cobertura 0
+
+[✔] Bug de CSS: encabezados de tabla desalineados
+    - `.fm-t th` (especificidad 0,1,1) le ganaba a `.fm-r` (0,1,0), así que los
+      encabezados quedaban a la izquierda con las celdas a la derecha
+    - Arreglo: regla `.fm-t th.fm-r` (0,2,1)
+
+[✔] Bug de CSS: texto invisible en el bloque de metodología
+    - Los <span class="fm-mono"> heredaban el color oscuro global dentro de la
+      caja azul marino → azul sobre azul
+    - Reescrito con color explícito y en tres afirmaciones cortas
+
+[✔] Interfaz: vocabulario según el flujo
+    - Nueva función palabras(flow): en impo el socio provee, en expo compra
+    - "Se abastece de" en la pantalla de exportaciones invertía el sentido
+    - Todas las descripciones reescritas en lenguaje llano (sin CIF/FOB ni
+      "base de valoración" en el cuerpo del texto)
+
+[✔] Interfaz: la concentración se muestra como "≈ 1.4 países"
+    - Es un equivalente, no un conteo: redondear a entero colapsaría 1.0, 1.3 y
+      1.4 en "1" y borraría la diferencia entre monopolio y dominante con franja
+    - Columna renombrada de "Socios" a "Concentración"
+
+[✔] Marca: la vista freemium dice "Datasur", el landing y el motor ISE siguen
+    diciendo EconoLens
+
+[✔] PAISES pasa a declarar 20 códigos ISO, con test que lo verifica contra los
+    datos: un país nuevo sin nombre declarado se mostraba como "PE"
+
+NOTA SOBRE EL FILTRO DE PARTIDAS
+    Producto, Concentración y Registros muestran solo partidas ≥ 50M USD anuales:
+    3.834 de 79.341 (4.8%) que concentran el 86.1% del comercio. El Panorama NO
+    filtra. El corte es ABSOLUTO, así que castiga a las economías chicas
+    (BR 1.210 partidas vs BO 33). Un corte relativo sería más justo — PENDIENTE.
+
+TOTAL TESTS: 252 – todos verdes

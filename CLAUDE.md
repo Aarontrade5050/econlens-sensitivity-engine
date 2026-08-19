@@ -30,7 +30,7 @@ La app abre en un **selector de módulo**, no en un file uploader:
 
 | | Freemium — Comex Latam | Premium — Motor ISE |
 |---|---|---|
-| Data | 9 países LATAM, precomputada | Transaccional, la sube el usuario |
+| Data | 10 países LATAM, precomputada | Transaccional, la sube el usuario |
 | Granularidad | HS 6d × socio × mes | HS 10d × importador × mes |
 | Métricas | YoY, share, concentración | ISE, elasticidad, volatilidad, shock |
 | Procesamiento | Ninguno (lee artefactos) | Pipeline completo en memoria |
@@ -88,16 +88,16 @@ data/
 resources/
   dim_partida.csv       # Jerarquía HS 2022 estática (5,633 filas) — fallback cuando no hay DB
   partner_aliases.yml   # Unificación de nombres de socio + buckets (no declarado / zona franca)
-  freemium/             # Artefactos del precómputo freemium (versionados, ~37 MB)
+  freemium/             # Artefactos del precómputo freemium (versionados, ~42 MB)
     country_yearly.parquet  hs_yearly.parquet  partner_share.parquet
     hhi.parquet  monthly_country.parquet  monthly_hs.parquet
-    base/               # Base particionada por país (58 MB, NO versionada — se regenera)
+    base/               # Base particionada por país (68 MB, NO versionada — se regenera)
 .streamlit/
   config.toml      # Dark theme: #0f172a fondo, #38bdf8 acento
 config.yml         # Schema canónico de ingesta premium: required/optional con aliases por fuente
 config_freemium.yml # Schema canónico freemium: fecha, partner, hs_code, desc_aran, value
 run.py             # Entrada premium: inbox → limpieza → arquetipos → pipeline ISE → agregaciones → dim_partida → DuckDB
-build_freemium.py  # Entrada freemium: data/freemium/ → normalización → agregado → 6 tablas derivadas
+build_freemium.py  # Entrada freemium: data/freemium/ → normalización → agregado → 8 tablas derivadas
 ```
 
 ## Flujo de ingesta de nueva data
@@ -148,12 +148,13 @@ cambio se vea.
 - **`hs_code` llega como Int64 y con el largo del código NACIONAL, no a 6 dígitos**: AR usa NCM de 11, PA 12, PE/CO/HN 10, BR/CL/MX 8. Al venir como Int64 los capítulos 01–09 pierden el cero inicial, y **rellenar a 6 no lo repone**: hay que reponerlo respecto del largo nacional de esa fuente. `normalize_hs6` infiere ese largo por moda de la columna (no por máximo: BO/impo/2025 tiene outliers de 12 sobre una base de 11) y antepone el cero a las filas que quedaron con un dígito menos, antes de truncar a 6.
   Sin esto, `01039200191` (porcinos) se leía `103920` = cereales, y `07142090` (camote) se leía `714209` = piedras preciosas. Afectaba hasta el **33% de las filas de exportación de Chile** — justo los capítulos agrícolas. Validado contra `resources/dim_partida.csv`: 99.5% de las partidas resultantes son subpartidas HS válidas
 - **CIF vs FOB nunca se suman**: `base_valor` es parte de la clave de agregación (impo→CIF, expo→FOB)
-- **Las columnas de actor (`company`, `id_company`) existen en 7 de 9 países pero se descartan en la ingesta**: no están declaradas en `config_freemium.yml`, por lo que nunca llegan al agregado. El tachado/blur del diseño es decorativo, no un mecanismo de seguridad
-- Socios: cada aduana escribe distinto al mismo país (`U.S.A`, `Estados Unidos de América`, `ESTADOS UNIDOS DE NORTEAMERICA`). `normalize_partner` los unifica (974 → 476) usando `resources/partner_aliases.yml`
+- **Las columnas de actor (`company`, `id_company`) existen en 8 de 10 países pero se descartan en la ingesta**: no están declaradas en `config_freemium.yml`, por lo que nunca llegan al agregado. El tachado/blur del diseño es decorativo, no un mecanismo de seguridad
+- Socios: cada aduana escribe distinto al mismo país (`U.S.A`, `Estados Unidos de América`, `ESTADOS UNIDOS DE NORTEAMERICA`). `normalize_partner` los unifica (974 → 468) usando `resources/partner_aliases.yml`
 - Buckets: `No declarado` (3.1% global, **14% en AR**) y `Zona franca / régimen especial` (0.8%). Se muestran, no se descartan; el HHI los excluye del cálculo y reporta `cobertura_pct`
 - Métricas posibles: solo sobre valor (YoY, share, concentración). Sin cantidad no hay precio unitario → **no hay volatilidad, elasticidad ni ISE** en freemium
 - **Concentración se publica como número efectivo de socios (10.000/HHI), no como HHI crudo.** A 6 dígitos el HHI mediano es 5.259: los cortes antimonopolio clásicos (1.500/2.500) dejan el 84% de las partidas en "alta" porque miden empresas dentro de un mercado, no países proveedores de un producto. Los cortes son sobre socios efectivos (1,5 / 3 / 6) y reparten 17/31/33/19%
-- **La pantalla de concentración filtra a partidas ≥ 50M USD anuales** (`VALOR_MINIMO_RELEVANTE`): 3.548 partidas con el 86% del comercio. Las descartadas son 16% del universo y 0.78% del valor, concentradas por azar de muestreo
+- **Las pantallas de Producto, Concentración y Registros filtran a partidas ≥ 50M USD anuales** (`VALOR_MINIMO_RELEVANTE`): 3.834 de 79.341 partidas (4.8% del universo) que concentran el **86.1% del comercio**. El panorama NO filtra: sus totales y su ranking de socios cubren el 100%.
+  **Limitación conocida**: el corte es absoluto, así que castiga a las economías chicas — Brasil muestra 1.210 partidas y Bolivia 33. Un corte relativo (top N por país, o % del comercio del país) sería más justo entre países
 - **Se ordena por `delta_socios`** (sustitución de origen 2024→2025), no por nivel: es la lectura que un dashboard genérico no da y el gancho natural hacia premium
 - Calidad conocida: BR/CL/CO/BO cuadran con cifras oficiales. **AR está inflado (~1.8x)** y **MX expo subvaluado (~5x)** respecto a estadísticas oficiales — problema de fuente, no del pipeline
 

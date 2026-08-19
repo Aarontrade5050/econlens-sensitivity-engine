@@ -373,3 +373,13 @@ def test_monthly_by_country_aggregates_across_products():
 ])
 def test_all_metrics_stay_lazy(fn):
     assert isinstance(fn(_base([{}])), pl.LazyFrame)
+
+
+def test_hhi_is_null_when_the_partida_has_no_declared_value():
+    """Hay embarques declarados en 0: dividir por ese total daba n_socios = inf."""
+    base = _base([{"partner": "Paraguay", "value": 0.0}])
+    out = compute_hhi(base).collect()
+
+    assert out["hhi"].to_list() == [None]
+    assert out["n_socios"].to_list() == [None]
+    assert out["categoria"].to_list() == [None]
