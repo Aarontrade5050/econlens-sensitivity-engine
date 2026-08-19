@@ -2,7 +2,23 @@
 
 > Transforma datos de aduanas en métricas de riesgo estructural por producto e importador.
 
-EconoLens es un motor de análisis cuantitativo que procesa importaciones (Perú) y produce un **Score de Sensibilidad Económica (ISE)** por producto y actor, detectando shocks, volatilidad y cambios estructurales en precio y volumen.
+EconoLens es una plataforma de inteligencia de comercio exterior con **dos módulos**. La aplicación abre en un selector, no en un cargador de archivos.
+
+## Los dos módulos
+
+| | **Comex Latam** (abierto) | **Motor ISE** (detallado) |
+|---|---|---|
+| Datos | 10 países LATAM, precomputados | Transaccional, lo sube el usuario |
+| Granularidad | Subpartida 6d × socio × mes | Partida 10d × importador × mes |
+| Métricas | Crecimiento interanual, participación de socios, concentración de origen | ISE, elasticidad, volatilidad, detección de shocks |
+| Procesamiento | Ninguno por sesión (lee artefactos) | Pipeline completo en memoria |
+| Se alimenta con | `build_freemium.py` (offline) | `run.py` o el cargador de archivos |
+
+**Comex Latam** responde qué compra y vende cada país, con quién, y de cuántos orígenes depende cada producto. Cuatro pantallas: panorama del país, detalle de producto, concentración y registros.
+
+**Motor ISE** produce un **Score de Sensibilidad Económica** por producto y actor, detectando shocks, volatilidad y cambios estructurales en precio y volumen. Requiere datos transaccionales con cantidad y unidad de medida.
+
+> **Sobre la cobertura de datos.** La fuente estadística no cubre a todos los países por igual. Brasil y Colombia coinciden al 100% con las cifras oficiales de MDIC y DANE; Chile y Perú tienen desvíos menores. **Argentina viene inflada ~1.8x y México cubre menos de la mitad de su comercio real.** Es un problema de la fuente, no del procesamiento: el mismo código produce cifras exactas para Brasil. Ver la tabla completa en `CLAUDE.md`.
 
 ---
 
@@ -35,6 +51,20 @@ python -m venv .venv
 # 3. Instalar dependencias
 pip install -r requirements.txt
 ```
+
+### Uso
+
+```bash
+streamlit run src/dashboard.py     # la aplicación (ambos módulos)
+python run.py                      # pipeline premium: data/inbox/ → DuckDB
+python build_freemium.py           # precómputo freemium: data/freemium/ → resources/freemium/
+uvicorn src.api:app --reload       # API REST
+pytest -v                          # 262 tests
+```
+
+El módulo Comex Latam lee artefactos ya calculados y no procesa nada por sesión.
+Si se modifica `src/metrics_freemium.py`, hay que volver a correr `build_freemium.py`
+para que el cambio se vea.
 
 ---
 

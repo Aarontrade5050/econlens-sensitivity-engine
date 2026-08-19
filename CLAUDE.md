@@ -156,7 +156,20 @@ cambio se vea.
 - **Las pantallas de Producto, Concentración y Registros muestran el top 300 de cada país y flujo** (`partidas_relevantes`), con piso de 1M USD anuales para descartar ruido: 5.611 partidas con el **84.5% del comercio**. El panorama NO filtra: sus totales y su ranking de socios cubren el 100%.
   El corte es **relativo al propio país**, no absoluto: con un piso único de 50M USD, Brasil mostraba 1.210 partidas y Bolivia 33, y algún país-flujo se quedaba en 5. Ahora cada país muestra entre 416 y 600
 - **Se ordena por `delta_socios`** (sustitución de origen 2024→2025), no por nivel: es la lectura que un dashboard genérico no da y el gancho natural hacia premium
-- Calidad conocida: BR/CL/CO/BO cuadran con cifras oficiales. **AR está inflado (~1.8x)** y **MX expo subvaluado (~5x)** respecto a estadísticas oficiales — problema de fuente, no del pipeline
+- **Cobertura contra cifras oficiales (2024, verificado 2026-08-18)** — la fuente NO cubre igual a todos los países:
+
+| País | Expo nuestra | Expo oficial | Cob. | Impo nuestra | Impo oficial | Cob. | Fuente oficial |
+|---|---|---|---|---|---|---|---|
+| Brasil | 337.0 | 337.0 | **100%** | 262.5 | 262.4 | **100%** | MDIC |
+| Colombia | 49.6 | 49.6 | **100%** | 64.1 | 64.1 | **100%** | DANE |
+| Chile | 97.5 | 100.2 | 97% | 75.0 | ~78.0 | 96% | Banco Central |
+| Perú | 68.4 | 74.7 | 92% | 54.9 | s/v | — | SUNAT / BCRP |
+| **Argentina** | 141.7 | 79.7 | **178%** ⚠ | 95.4 | 60.8 | **157%** ⚠ | INDEC |
+| **México** | 115.5 | 617.1 | **19%** ⚠ | 223.1 | 625.3 | **36%** ⚠ | INEGI |
+| BO, HN, PA, UY | | | s/v | | | s/v | pendiente |
+
+  (miles de millones USD. "s/v" = sin verificar)
+- **AR está inflado ~1.8x y MX cubre menos de la mitad.** Es problema de FUENTE, no del pipeline: BR y CO calzan al 100% con el mismo código. **No presentar AR ni MX sin aclararlo**
 
 ## Datos — Capa premium
 

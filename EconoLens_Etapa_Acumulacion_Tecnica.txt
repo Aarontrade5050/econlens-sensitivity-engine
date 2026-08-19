@@ -1087,3 +1087,33 @@ TOTAL TESTS: 252 – todos verdes
       parametrizados por país e incluyen BO, que es el caso de borde
 
 TOTAL TESTS: 262 – todos verdes
+
+----------------------------------------------------------------------------------------
+2026-08-18 (cont.) – VALIDACIÓN CONTRA CIFRAS OFICIALES
+----------------------------------------------------------------------------------------
+
+[✔] Comparación de nuestros totales 2024 contra estadísticas oficiales
+    (miles de millones USD)
+
+    País       Expo nuestra  Oficial   Cob.    Impo nuestra  Oficial   Cob.
+    Brasil          337.0     337.0    100%        262.5      262.4    100%
+    Colombia         49.6      49.6    100%         64.1       64.1    100%
+    Chile            97.5     100.2     97%         75.0      ~78.0     96%
+    Perú             68.4      74.7     92%         54.9        s/v      —
+    Argentina       141.7      79.7    178% <-      95.4       60.8    157% <-
+    México          115.5     617.1     19% <-     223.1      625.3     36% <-
+    BO, HN, PA, UY   s/v       s/v      s/v         s/v        s/v      s/v
+
+    Fuentes: MDIC (BR), DANE (CO), Banco Central (CL), SUNAT/BCRP (PE),
+             INDEC (AR), INEGI (MX)
+
+    CONCLUSIÓN: el pipeline es correcto — BR y CO calzan al 100% con el mismo
+    código. El problema es de FUENTE y afecta a dos países:
+      · Argentina viene INFLADA ~1.8x en ambos flujos
+      · México cubre apenas 19% de sus expo y 36% de sus impo
+    Reclamar al proveedor. Mientras tanto, NO presentar AR ni MX sin aclarar.
+
+    Chile y Perú tienen desvíos menores (3-8%) atribuibles a diferencias
+    metodológicas normales entre fuentes (zonas francas, ajustes, reexportación).
+
+    PENDIENTE: verificar BO, HN, PA y UY contra sus institutos.
