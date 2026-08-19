@@ -113,6 +113,41 @@ def test_normalize_hs6_keeps_nulls():
     assert normalize_hs6(lf).collect()["hs_code"].to_list() == [None]
 
 
+def test_normalize_hs6_recovers_zero_lost_in_national_codes():
+    """El caso que corrompía la data: código nacional con el cero inicial comido.
+
+    Argentina usa NCM de 11 dígitos. `01039200191` (porcinos, capítulo 01) llega
+    como Int64 con 10 dígitos y truncar los primeros 6 daba `103920` — cereales.
+    """
+    # El largo nacional debe ser mayoría para poder inferirlo: en la data real
+    # el peor caso es Chile expo, con 62% completos contra 33% sin el cero.
+    completos = [27160000000] * 6
+    lf = pl.LazyFrame({"hs_code": [*completos, 1039200191, 7099911000]})
+    assert normalize_hs6(lf).collect()["hs_code"].to_list() == [
+        *["271600"] * 6,  # ya venían completos
+        "010392",  # recuperado: porcinos, no cereales
+        "070999",  # recuperado: hortalizas, no vidrio
+    ]
+
+
+def test_normalize_hs6_uses_the_modal_length_not_the_max():
+    """Un outlier más largo no debe redefinir el largo nacional del archivo."""
+    lf = pl.LazyFrame({"hs_code": [*([85171200] * 5), 851712000123]})
+    assert normalize_hs6(lf).collect()["hs_code"].to_list()[:5] == ["851712"] * 5
+
+
+def test_normalize_hs6_leaves_short_administrative_codes_alone():
+    """AR mete pseudo-partidas ('420000' = mercadería a bordo) que no son HS."""
+    lf = pl.LazyFrame({"hs_code": [*([27160000000] * 5), 420000]})
+    assert normalize_hs6(lf).collect()["hs_code"].to_list()[-1] == "420000"
+
+
+def test_normalize_hs6_accepts_an_explicit_national_length():
+    lf = pl.LazyFrame({"hs_code": [1039200191]})
+    salida = normalize_hs6(lf, largo_nacional=11).collect()["hs_code"].to_list()
+    assert salida == ["010392"]
+
+
 # ---------------------------------------------------------------------------
 # load_freemium_source
 # ---------------------------------------------------------------------------

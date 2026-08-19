@@ -141,11 +141,12 @@ cambio se vea.
 
 ## Datos — Capa freemium (FASE 11)
 
-- Fuente: 9 países LATAM (AR, BO, BR, CL, CO, HN, MX, PA, UY), impo + expo, 2024–2025 — ~20M filas crudas
+- Fuente: 10 países LATAM (AR, BO, BR, CL, CO, HN, MX, PA, PE, UY), impo + expo, 2024–2025 — ~25M filas crudas
 - Estructura: `data/freemium/{PAIS}/{IM|EX}/{AÑO}.parquet` — país y flujo se derivan de la ruta, no de una columna
-- Cobertura: 12/12 meses en todos los país-año. **PA y UY solo tienen 2025** → su YoY es `null`, nunca 0
+- Cobertura: los 10 países tienen 2024 y 2025 completos. El código igual deriva países y años de lo que exista en disco: si falta el año base, el YoY es `null`, nunca 0
 - Esquema canónico: `fecha`, `partner`, `hs_code` (6d), `desc_aran`, `value` — hay 4 variantes de nombres entre fuentes, resueltas por `aliases` en `config_freemium.yml`
-- **`hs_code` llega como Int64**: se castea a String y se rellena con ceros a 6 dígitos (`normalize_hs6`), si no los capítulos 01–09 pierden el cero inicial
+- **`hs_code` llega como Int64 y con el largo del código NACIONAL, no a 6 dígitos**: AR usa NCM de 11, PA 12, PE/CO/HN 10, BR/CL/MX 8. Al venir como Int64 los capítulos 01–09 pierden el cero inicial, y **rellenar a 6 no lo repone**: hay que reponerlo respecto del largo nacional de esa fuente. `normalize_hs6` infiere ese largo por moda de la columna (no por máximo: BO/impo/2025 tiene outliers de 12 sobre una base de 11) y antepone el cero a las filas que quedaron con un dígito menos, antes de truncar a 6.
+  Sin esto, `01039200191` (porcinos) se leía `103920` = cereales, y `07142090` (camote) se leía `714209` = piedras preciosas. Afectaba hasta el **33% de las filas de exportación de Chile** — justo los capítulos agrícolas. Validado contra `resources/dim_partida.csv`: 99.5% de las partidas resultantes son subpartidas HS válidas
 - **CIF vs FOB nunca se suman**: `base_valor` es parte de la clave de agregación (impo→CIF, expo→FOB)
 - **Las columnas de actor (`company`, `id_company`) existen en 7 de 9 países pero se descartan en la ingesta**: no están declaradas en `config_freemium.yml`, por lo que nunca llegan al agregado. El tachado/blur del diseño es decorativo, no un mecanismo de seguridad
 - Socios: cada aduana escribe distinto al mismo país (`U.S.A`, `Estados Unidos de América`, `ESTADOS UNIDOS DE NORTEAMERICA`). `normalize_partner` los unifica (974 → 476) usando `resources/partner_aliases.yml`

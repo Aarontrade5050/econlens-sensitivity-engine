@@ -72,20 +72,56 @@ def scan_freemium_tree(root: Path | str) -> list[FreemiumSource]:
     return sources
 
 
-def normalize_hs6(lf: pl.LazyFrame, hs_col: str = "hs_code") -> pl.LazyFrame:
+def _largo_nacional(lf: pl.LazyFrame, hs_col: str) -> int:
+    """Largo del código nacional de esta fuente: el más frecuente de la columna.
+
+    Se usa la moda y no el máximo porque hay fuentes con outliers más largos
+    (BO/impo/2025 tiene códigos de 12 dígitos sobre una base de 11) que
+    redefinirían el largo y desplazarían todos los códigos del archivo.
+    """
+    d = (
+        lf.select(pl.col(hs_col).cast(pl.String).str.len_chars().alias("n"))
+        .drop_nulls()
+        .group_by("n")
+        .agg(pl.len().alias("f"))
+        .sort(["f", "n"], descending=[True, True])
+        .head(1)
+        .collect()
+    )
+    return int(d["n"][0]) if d.height else HS_LENGTH
+
+
+def normalize_hs6(
+    lf: pl.LazyFrame,
+    hs_col: str = "hs_code",
+    largo_nacional: int | None = None,
+) -> pl.LazyFrame:
     """Lleva hs_code a String de 6 dígitos.
 
     Las fuentes entregan el código como Int64, lo que borra el cero inicial de
-    los capítulos 01–09 (10121 en vez de 010121). Los códigos más largos se
-    truncan a la subpartida de 6 dígitos, que es el nivel que publica freemium.
+    los capítulos 01-09. Cuando el código nacional es más largo que 6 dígitos,
+    ese cero perdido no se puede reponer rellenando a 6: hay que reponerlo
+    respecto del largo del código nacional de la fuente. Argentina usa NCM de
+    11 dígitos, así que `01039200191` (porcinos) llega como 10 dígitos y
+    truncar los primeros 6 daba `103920`, que es cereales.
+
+    Una fila a la que le falta exactamente un dígito respecto del largo
+    nacional es una fila que perdió el cero; se le repone antes de truncar.
+    Los códigos mucho más cortos son pseudo-partidas administrativas
+    ("420000" = mercadería para consumo a bordo) y se dejan como están.
     """
+    if largo_nacional is None:
+        largo_nacional = _largo_nacional(lf, hs_col)
+
+    crudo = pl.col(hs_col).cast(pl.String).str.strip_chars()
+    completo = (
+        pl.when(crudo.str.len_chars() == largo_nacional - 1)
+        .then(pl.concat_str(pl.lit("0"), crudo))
+        .otherwise(crudo)
+    )
+
     return lf.with_columns(
-        pl.col(hs_col)
-        .cast(pl.String)
-        .str.strip_chars()
-        .str.pad_start(HS_LENGTH, "0")
-        .str.slice(0, HS_LENGTH)
-        .alias(hs_col)
+        completo.str.pad_start(HS_LENGTH, "0").str.slice(0, HS_LENGTH).alias(hs_col)
     )
 
 

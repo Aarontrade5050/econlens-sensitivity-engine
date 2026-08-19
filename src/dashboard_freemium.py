@@ -27,10 +27,15 @@ C = {
     "bar_prev": "#C7CEF0", "bar_cur": "#EF6C0B", "track": "#EDEFF6",
 }
 
+# Nombre de presentación por código ISO. Se declaran también países que aún no
+# están en data/freemium/ para que sumar uno nuevo no muestre el código crudo.
 PAISES = {
-    "AR": "Argentina", "BO": "Bolivia", "BR": "Brasil", "CL": "Chile",
-    "CO": "Colombia", "HN": "Honduras", "MX": "México", "PA": "Panamá",
-    "UY": "Uruguay",
+    "AR": "Argentina", "BO": "Bolivia", "BR": "Brasil", "CA": "Canadá",
+    "CL": "Chile", "CO": "Colombia", "CR": "Costa Rica", "DO": "Rep. Dominicana",
+    "EC": "Ecuador", "GT": "Guatemala", "HN": "Honduras", "MX": "México",
+    "NI": "Nicaragua", "PA": "Panamá", "PE": "Perú", "PY": "Paraguay",
+    "SV": "El Salvador", "US": "Estados Unidos", "UY": "Uruguay",
+    "VE": "Venezuela",
 }
 
 PANTALLAS = {

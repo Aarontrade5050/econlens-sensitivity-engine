@@ -86,3 +86,13 @@ def test_freemium_never_renders_actor_identity(freemium: AppTest):
     registros = pl.read_parquet(ARTEFACTOS / "registros.parquet")
     assert "company" not in registros.columns
     assert "id_company" not in registros.columns
+
+
+def test_every_country_in_the_data_has_a_display_name():
+    """Un país nuevo sin nombre declarado se mostraría como 'PE' en vez de 'Perú'."""
+    import polars as pl
+
+    from src.dashboard_freemium import PAISES
+
+    presentes = set(pl.read_parquet(ARTEFACTOS / "country_yearly.parquet")["country"])
+    assert presentes <= set(PAISES), f"sin nombre: {sorted(presentes - set(PAISES))}"
