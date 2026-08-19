@@ -20,6 +20,7 @@ from src.metrics_freemium import (
     compute_partner_share,
     compute_registros,
     concentracion_relevante,
+    partidas_relevantes,
 )
 
 
@@ -383,3 +384,56 @@ def test_hhi_is_null_when_the_partida_has_no_declared_value():
     assert out["hhi"].to_list() == [None]
     assert out["n_socios"].to_list() == [None]
     assert out["categoria"].to_list() == [None]
+
+
+# ---------------------------------------------------------------------------
+# partidas_relevantes — qué productos llegan a las pantallas
+# ---------------------------------------------------------------------------
+
+def _hs_yearly(filas: list[dict]) -> pl.LazyFrame:
+    base = _base([
+        {"hs_code": f["hs"], "country": f.get("country", "CL"),
+         "flow": f.get("flow", "impo"), "value": f["value"]}
+        for f in filas
+    ])
+    return compute_hs_yearly(base)
+
+
+def test_relevance_is_measured_within_each_country():
+    """Un corte absoluto castiga a las economías chicas: 30M es marginal en
+    Brasil y es una partida grande en Bolivia."""
+    filas = (
+        [{"hs": f"BR{i:04d}", "country": "BR", "value": 1e9} for i in range(5)]
+        + [{"hs": f"BO{i:04d}", "country": "BO", "value": 30e6} for i in range(5)]
+    )
+    out = partidas_relevantes(_hs_yearly(filas), top_n=3).collect()
+
+    assert out.filter(pl.col("country") == "BR").height == 3
+    assert out.filter(pl.col("country") == "BO").height == 3
+
+
+def test_relevance_keeps_only_the_top_n_per_country_and_flow():
+    filas = [{"hs": f"{i:06d}", "value": (10 - i) * 1e7} for i in range(6)]
+    out = partidas_relevantes(_hs_yearly(filas), top_n=2).collect()
+
+    assert sorted(out["hs_code"].to_list()) == ["000000", "000001"]
+
+
+def test_relevance_drops_noise_below_the_floor():
+    """Una partida de tres embarques al año es concentrada por azar, no por
+    dependencia: entra en el top N de un país chico pero no dice nada."""
+    filas = [{"hs": "111111", "value": 80e6}, {"hs": "999999", "value": 5_000.0}]
+    out = partidas_relevantes(_hs_yearly(filas), top_n=50, valor_minimo=1e6).collect()
+
+    assert out["hs_code"].to_list() == ["111111"]
+
+
+def test_relevance_separates_flows():
+    filas = (
+        [{"hs": f"{i:06d}", "flow": "impo", "value": 1e8} for i in range(3)]
+        + [{"hs": f"{i:06d}", "flow": "expo", "value": 1e8} for i in range(3)]
+    )
+    out = partidas_relevantes(_hs_yearly(filas), top_n=2).collect()
+
+    assert out.filter(pl.col("flow") == "impo").height == 2
+    assert out.filter(pl.col("flow") == "expo").height == 2

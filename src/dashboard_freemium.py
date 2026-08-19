@@ -539,7 +539,7 @@ def _registros(country: str, flow: str, cur: int) -> None:
     total = regs.height
     muestra = regs.sort("periodo", descending=True).head(12)
     desc = _f(_tbl("hs_yearly"), country=country, flow=flow, hs_code=muestra["hs_code"][0], anio=cur)
-    desc_txt = desc["desc_aran"][0] if not desc.is_empty() else ""
+    desc_txt = desc["desc_aran"][0] if not desc.is_empty() else None
 
     filas = "".join(
         f'<tr><td class="fm-mono" style="color:{C["muted"]}">{x["periodo"]:%Y-%m}</td>'
@@ -557,7 +557,7 @@ def _registros(country: str, flow: str, cur: int) -> None:
           <div style="display:flex;flex-direction:column;gap:3px">
             <h2 class="fm-h2">Registros agregados</h2>
             <div class="fm-note">{PAISES.get(country, country)} ·
-              {'Importaciones' if flow == 'impo' else 'Exportaciones'} · {_esc(hs or '')} {_esc(desc_txt[:60])}</div>
+              {palabras(flow)["flujo"]} · {_esc(hs or '')} {_desc(desc_txt, 60)}</div>
           </div>
           <div class="fm-note">Columnas de actor disponibles solo en premium</div>
         </div>

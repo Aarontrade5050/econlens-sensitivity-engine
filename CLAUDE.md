@@ -153,8 +153,8 @@ cambio se vea.
 - Buckets: `No declarado` (3.1% global, **14% en AR**) y `Zona franca / régimen especial` (0.8%). Se muestran, no se descartan; el HHI los excluye del cálculo y reporta `cobertura_pct`
 - Métricas posibles: solo sobre valor (YoY, share, concentración). Sin cantidad no hay precio unitario → **no hay volatilidad, elasticidad ni ISE** en freemium
 - **Concentración se publica como número efectivo de socios (10.000/HHI), no como HHI crudo.** A 6 dígitos el HHI mediano es 5.259: los cortes antimonopolio clásicos (1.500/2.500) dejan el 84% de las partidas en "alta" porque miden empresas dentro de un mercado, no países proveedores de un producto. Los cortes son sobre socios efectivos (1,5 / 3 / 6) y reparten 17/31/33/19%
-- **Las pantallas de Producto, Concentración y Registros filtran a partidas ≥ 50M USD anuales** (`VALOR_MINIMO_RELEVANTE`): 3.834 de 79.341 partidas (4.8% del universo) que concentran el **86.1% del comercio**. El panorama NO filtra: sus totales y su ranking de socios cubren el 100%.
-  **Limitación conocida**: el corte es absoluto, así que castiga a las economías chicas — Brasil muestra 1.210 partidas y Bolivia 33. Un corte relativo (top N por país, o % del comercio del país) sería más justo entre países
+- **Las pantallas de Producto, Concentración y Registros muestran el top 300 de cada país y flujo** (`partidas_relevantes`), con piso de 1M USD anuales para descartar ruido: 5.611 partidas con el **84.5% del comercio**. El panorama NO filtra: sus totales y su ranking de socios cubren el 100%.
+  El corte es **relativo al propio país**, no absoluto: con un piso único de 50M USD, Brasil mostraba 1.210 partidas y Bolivia 33, y algún país-flujo se quedaba en 5. Ahora cada país muestra entre 416 y 600
 - **Se ordena por `delta_socios`** (sustitución de origen 2024→2025), no por nivel: es la lectura que un dashboard genérico no da y el gancho natural hacia premium
 - Calidad conocida: BR/CL/CO/BO cuadran con cifras oficiales. **AR está inflado (~1.8x)** y **MX expo subvaluado (~5x)** respecto a estadísticas oficiales — problema de fuente, no del pipeline
 

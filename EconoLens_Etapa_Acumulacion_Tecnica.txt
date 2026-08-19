@@ -1059,3 +1059,31 @@ NOTA SOBRE EL FILTRO DE PARTIDAS
     (BR 1.210 partidas vs BO 33). Un corte relativo sería más justo — PENDIENTE.
 
 TOTAL TESTS: 252 – todos verdes
+
+----------------------------------------------------------------------------------------
+2026-08-18 (cont.) – EL CORTE DE PARTIDAS PASA A SER RELATIVO AL PAÍS
+----------------------------------------------------------------------------------------
+
+[✔] partidas_relevantes(): top 300 por país y flujo, con piso de 1M USD
+    - Problema del corte absoluto de 50M: 50 millones no significan lo mismo en
+      Brasil que en Bolivia. BR mostraba 1.210 partidas, BO 33, y algún
+      país-flujo se quedaba en 5. Un boliviano abría el dashboard y veía nada
+    - Medidas las alternativas antes de elegir:
+        absoluto >=50M   3.834 partidas  86.1% valor  rango por pais 5-784
+        top 150          3.000           76.7%        150-150
+        top 300          6.000           84.5%        300-300
+        >=0.1% del pais  2.429           75.3%        46-181
+        top300 Y >=1M    5.611           84.5%        116-300   <- elegida
+    - El piso de 1M se conserva pero bajo: solo para descartar partidas de unos
+      pocos embarques, que dan concentración máxima por azar de muestreo
+    - Resultado: cada país muestra entre 416 y 600 partidas (300 impo + 300 expo)
+    - La regla se extrajo a UNA función compartida por las tres consumidoras
+      (partner_share, registros, concentracion_relevante), que antes repetían
+      el filtro
+
+[✔] Bug: BO/expo/registros reventaba con 'NoneType' object is not subscriptable
+    - Misma causa que el bug de la sesión anterior: desc_aran nulo
+    - Los smoke tests solo cubrían el país por defecto; ahora están
+      parametrizados por país e incluyen BO, que es el caso de borde
+
+TOTAL TESTS: 262 – todos verdes

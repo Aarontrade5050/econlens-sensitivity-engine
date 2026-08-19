@@ -50,8 +50,22 @@ def test_landing_does_not_ask_for_a_file_upfront():
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("pantalla", ["panorama", "producto", "concentracion", "registros"])
-def test_every_screen_renders(freemium: AppTest, pantalla: str):
+@pytest.mark.parametrize("pais", ["BR", "BO"])
+def test_every_screen_renders(freemium: AppTest, pantalla: str, pais: str):
+    """BO es el caso de borde: economía chica, con partidas sin descripción."""
+    freemium.session_state["fm_country"] = pais
     freemium.session_state["fm_screen"] = pantalla
+    freemium.run()
+
+    assert not freemium.exception
+
+
+@pytest.mark.parametrize("flow", ["impo", "expo"])
+def test_small_country_renders_records_in_both_flows(freemium: AppTest, flow: str):
+    """BO/expo/registros rompía: la descripción de la partida venía nula."""
+    freemium.session_state["fm_country"] = "BO"
+    freemium.session_state["fm_flow"] = flow
+    freemium.session_state["fm_screen"] = "registros"
     freemium.run()
 
     assert not freemium.exception

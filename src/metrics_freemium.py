@@ -34,10 +34,39 @@ SOCIOS_DOMINANTE = 1.5
 SOCIOS_POCOS = 3.0
 SOCIOS_VARIOS = 6.0
 
-# Piso de valor anual para considerar una partida relevante. Las partidas por
-# debajo son 16% del universo pero solo 0.78% del comercio, y casi todas tienen
-# un único socio por puro azar de muestreo.
-VALOR_MINIMO_RELEVANTE = 50_000_000.0
+# Qué partidas llegan a las pantallas de Producto, Concentración y Registros.
+#
+# Se toma el top N DE CADA PAÍS y flujo, no un corte absoluto en dólares: con un
+# piso único de 50M USD, Brasil mostraba 1.210 partidas y Bolivia 33, y algún
+# país-flujo se quedaba en 5. Cincuenta millones no significan lo mismo en las
+# dos economías, así que la vara tiene que ser la del propio país.
+#
+# El piso en dólares se mantiene, pero bajo y solo para descartar ruido: una
+# partida de unos pocos embarques al año da concentración máxima por azar de
+# muestreo, no por dependencia estructural.
+#
+# Con estos valores cada país muestra entre 116 y 300 partidas y el conjunto
+# cubre el 84.5% del comercio.
+TOP_PARTIDAS_POR_PAIS = 300
+VALOR_MINIMO_RELEVANTE = 1_000_000.0
+
+
+def partidas_relevantes(
+    hs_yearly: pl.LazyFrame,
+    top_n: int = TOP_PARTIDAS_POR_PAIS,
+    valor_minimo: float = VALOR_MINIMO_RELEVANTE,
+) -> pl.LazyFrame:
+    """Las partidas que el dashboard muestra, medidas dentro de cada país.
+
+    Devuelve la clave país × flujo × partida × año, para cruzar contra
+    cualquier tabla derivada.
+    """
+    ranking = pl.col("value").rank("ordinal", descending=True).over(["country", "flow", "anio"])
+    return (
+        hs_yearly.filter(pl.col("value") >= valor_minimo)
+        .filter(ranking <= top_n)
+        .select(["country", "flow", "hs_code", "anio"])
+    )
 
 
 def _with_anio(lf: pl.LazyFrame) -> pl.LazyFrame:
@@ -129,12 +158,8 @@ def compute_partner_share(
     if hs_yearly is None:
         return share
 
-    relevantes = (
-        hs_yearly.filter(pl.col("value") >= valor_minimo)
-        .select(["country", "flow", "hs_code"])
-        .unique()
-    )
-    return share.join(relevantes, on=["country", "flow", "hs_code"])
+    claves = partidas_relevantes(hs_yearly, valor_minimo=valor_minimo)
+    return share.join(claves, on=["country", "flow", "hs_code", "anio"])
 
 
 def compute_partner_by_country(base: pl.LazyFrame) -> pl.LazyFrame:
@@ -241,7 +266,7 @@ def concentracion_relevante(
     keys = ["country", "flow", "hs_code", "anio"]
     return (
         hhi.join(hs_yearly.select([*keys, "value", "desc_aran", "yoy_pct"]), on=keys)
-        .filter(pl.col("value") >= valor_minimo)
+        .join(partidas_relevantes(hs_yearly, valor_minimo=valor_minimo), on=keys)
         .sort("delta_socios", nulls_last=True)
     )
 
@@ -262,15 +287,15 @@ def compute_registros(
     justamente lo que el tier premium desbloquea. Se acota a las partidas
     relevantes porque es la tabla más pesada y el resto no se consulta.
     """
-    relevantes = (
-        hs_yearly.filter(pl.col("value") >= valor_minimo)
+    claves = (
+        partidas_relevantes(hs_yearly, valor_minimo=valor_minimo)
         .select(["country", "flow", "hs_code"])
         .unique()
     )
     mes_keys = ["country", "flow", "hs_code", "periodo"]
     return (
         _sum_by(base, [*mes_keys, "partner"])
-        .join(relevantes, on=["country", "flow", "hs_code"])
+        .join(claves, on=["country", "flow", "hs_code"])
         .with_columns(
             (pl.col("value") / pl.col("value").sum().over(mes_keys) * 100).alias("share_mes")
         )
