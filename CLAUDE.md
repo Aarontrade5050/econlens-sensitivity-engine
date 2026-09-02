@@ -23,22 +23,28 @@ El output principal es una tabla con:
 - **FASE 9** ✅ Agregaciones con dimensión mensual (`periodo`) ✅ — Filtro Desde/Hasta en dashboard ✅ — File uploader multi-formato (parquet/csv/xlsx) ✅ — Pipeline en memoria por sesión de usuario (`_process_raw`) ✅
 - **FASE 10** ✅ Despliegue en Streamlit Community Cloud ✅ — `resources/dim_partida.csv` fallback estático de jerarquía HS ✅ — Navegador en cascada disponible en modo file-upload (sin DB) ✅
 - **FASE 11** ✅ Capa **Freemium** (estadística multi-país LATAM) ✅ — Ingesta + normalización de socios ✅ — Métricas de valor (YoY, share, concentración) ✅ — Precómputo offline ✅ — Selector de módulo + dashboard freemium de 4 pantallas ✅
+- **FASE 12** ✅ Capa **Manifiestos** (constructor de tabla dinámica) ✅ — Lake parquet particionado + DuckDB ✅ — Prorrateo del valor de la DUA ✅ — Catálogo de 27 dimensiones y 14 métricas ✅ — Tabla cruzada y presets ✅ — Tema compartido en `src/theme.py` ✅
 
-## Los dos módulos
+## Los tres módulos
 
 La app abre en un **selector de módulo**, no en un file uploader:
 
-| | Freemium — Comex Latam | Premium — Motor ISE |
-|---|---|---|
-| Data | 10 países LATAM, precomputada | Transaccional, la sube el usuario |
-| Granularidad | HS 6d × socio × mes | HS 10d × importador × mes |
-| Métricas | YoY, share, concentración | ISE, elasticidad, volatilidad, shock |
-| Procesamiento | Ninguno (lee artefactos) | Pipeline completo en memoria |
-| Entrada | `build_freemium.py` (offline) | `run.py` o file uploader |
+| | Freemium — Comex Latam | Manifiestos — Constructor | Premium — Motor ISE |
+|---|---|---|---|
+| Data | 10 países LATAM, precomputada | Manifiestos Perú, precomputada | Transaccional, la sube el usuario |
+| Granularidad | HS 6d × socio × mes | Guía / BL (documento de transporte) | HS 10d × importador × mes |
+| Métricas | YoY, share, concentración | Las que arme el usuario | ISE, elasticidad, volatilidad, shock |
+| Procesamiento | Ninguno (lee artefactos) | Ninguno (consulta DuckDB) | Pipeline completo en memoria |
+| Entrada | `build_freemium.py` (offline) | `build_manifiestos.py` (offline) | `run.py` o file uploader |
 
 `src/dashboard.py` decide con `st.session_state["view_mode"]` y delega en
-`src/dashboard_freemium.py`. **El flujo premium quedó intacto**: si se toca
-`dashboard.py`, verificar que las 5 tabs siguen renderizando.
+`src/dashboard_freemium.py` o `src/dashboard_manifiestos.py`. **El flujo premium
+quedó intacto**: si se toca `dashboard.py`, verificar que las 5 tabs siguen
+renderizando.
+
+Freemium y Manifiestos comparten identidad visual y por eso comparten
+`src/theme.py` (paleta, formateadores, CSS, tarjetas KPI). El Motor ISE conserva
+su tema oscuro de `.streamlit/config.toml`.
 
 ## Estructura del proyecto
 
@@ -62,6 +68,12 @@ src/
   cleaning_freemium.py  # normalize_partner() — unifica grafías de socio entre países (vectorizado)
   metrics_freemium.py   # compute_country_yearly / hs_yearly / partner_share / hhi / registros — solo sobre valor
   dashboard_freemium.py # render() — 4 pantallas (panorama / producto / concentración / registros)
+  # --- Capa manifiestos (FASE 12) — lake parquet + DuckDB, sin procesar por sesión ---
+  ingest_manifiestos.py   # parse_formato() / scan_manifiestos_dir() / load_manifiesto_source()
+  cleaning_manifiestos.py # prorratear_valor_dua() / normalize_hs() / clean_manifiestos()
+  pivot.py                # DIMENSIONES + METRICAS + run_pivot() / run_totales() / cobertura()
+  dashboard_manifiestos.py# render() — constructor de tabla dinámica
+  theme.py                # paleta C, formateadores y CSS compartidos freemium ↔ manifiestos
 tests/
   test_ingest.py        # 12 tests para ingest_inbox() y funciones auxiliares
   test_metrics.py
@@ -79,6 +91,11 @@ tests/
   test_metrics_freemium.py   # 39 tests — YoY nulo sin año base, shares, concentración
   test_dashboard_freemium.py # 14 smoke tests con streamlit.testing — render real, BR y BO
   test_deploy_compat.py      # compila cada fuente con Python 3.11, la versión del deploy
+  test_ingest_manifiestos.py    # 25 tests — 4 formatos, mapeo por formato, enteros "2.0"
+  test_cleaning_manifiestos.py  # 31 tests — prorrateo de DUA, ceros de HS, grafías
+  test_build_manifiestos.py     # 10 tests — lake particionado, rebuild sin rmtree
+  test_pivot.py                 # 40 tests — catálogo, validación, cruce, cobertura
+  test_dashboard_manifiestos.py # 22 smoke tests con AppTest — presets y expo_aereo
 data/
   inbox/           # Parquets nuevos para ingestar (procesados → se mueven a inbox/done/)
   inbox/done/      # Parquets ya procesados (no se reprocesarán)
@@ -86,6 +103,8 @@ data/
   interim/         # df_all.parquet — dataset combinado (ignorado por git)
   processed/       # econolens.duckdb, CSVs de output (ignorados por git)
   freemium/        # {PAIS}/{IM|EX}/{AÑO}.parquet — fuente estadística LATAM (ignorada por git)
+  data-manifiestos/# CSV crudos de manifiestos Perú (ignorados por git)
+  manifiestos/     # lake: periodo=/flujo=/via=/datos.parquet (ignorado por git)
 resources/
   dim_partida.csv       # Jerarquía HS 2022 estática (5,633 filas) — fallback cuando no hay DB
   partner_aliases.yml   # Unificación de nombres de socio + buckets (no declarado / zona franca)
@@ -98,8 +117,10 @@ resources/
   config.toml      # Dark theme: #0f172a fondo, #38bdf8 acento
 config.yml         # Schema canónico de ingesta premium: required/optional con aliases por fuente
 config_freemium.yml # Schema canónico freemium: fecha, partner, hs_code, desc_aran, value
+config_manifiestos.yml # Schema canónico manifiestos: mapeo POR FORMATO (no por alias global)
 run.py             # Entrada premium: inbox → limpieza → arquetipos → pipeline ISE → agregaciones → dim_partida → DuckDB
 build_freemium.py  # Entrada freemium: data/freemium/ → normalización → agregado → 8 tablas derivadas
+build_manifiestos.py # Entrada manifiestos: data/data-manifiestos/ → lake parquet particionado
 ```
 
 ## Flujo de ingesta de nueva data
@@ -140,6 +161,86 @@ Para agregar un país o un año:
 El dashboard **no procesa nada por sesión**: lee los artefactos ya calculados.
 Si se toca `metrics_freemium.py`, hay que volver a correr el build para que el
 cambio se vea.
+
+## Flujo de ingesta de manifiestos
+
+```
+data/data-manifiestos/*_{im|ex}_{aereo|maritimo}_*.csv
+    → parse_formato() deriva flujo y vía del NOMBRE del archivo
+    → load_manifiesto_source() renombra con el mapeo POR FORMATO
+      (config_manifiestos.yml), y completa con nulos lo que ese formato no trae
+    → periodo y fecha salen de DIA/MES/AÑO
+    → prorratear_valor_dua() reparte por peso el valor repetido de la DUA
+    → normalize_hs() repone ceros iniciales y cuenta las partidas de la lista
+    → clean_manifiestos() unifica grafías de transportista y almacén
+→ data/manifiestos/periodo=/flujo=/via=/datos.parquet
+```
+
+El mapeo es **por formato y no por lista de alias** como en las otras dos capas:
+los mismos nombres de columna significan cosas distintas según el archivo.
+`EXPORTADOR` es el actor peruano en ex_aereo y la contraparte extranjera en
+im_aereo; `CONSIGNATARIO` es el actor peruano en im_maritimo y el comprador
+extranjero en ex_maritimo. Una lista global los cruzaría.
+
+Para agregar un mes: dejar los CSV en `data/data-manifiestos/` y correr
+`python build_manifiestos.py`. No es incremental, reconstruye todo.
+
+## Datos — Capa manifiestos (FASE 12)
+
+- Fuente: manifiestos de carga del Perú — 4 formatos (`{im|ex}` × `{maritimo|aereo}`),
+  CSV con `;`, UTF-8. Mayo–julio 2026 = 251.162 filas. ~93k filas/mes, 31–48 columnas
+- Estructura: el **flujo y la vía se derivan del nombre del archivo**; el **periodo
+  sale de las columnas `DIA`/`MES`/`AÑO`**, no del nombre: tres formatos escriben
+  `..._2026_7.csv` y ex_aereo escribe `..._072026_7.csv`
+- Lake: `data/manifiestos/periodo=YYYY-MM/flujo=/via=/datos.parquet` (hive). 32,5 MB
+  de CSV → 4,7 MB de parquet zstd; ~9 MB por mes completo. **No se versiona**
+- **Una fila es una guía (aérea) o un conocimiento de embarque (marítimo), NO una
+  declaración.** De ahí salen los dos problemas que definen el módulo:
+- **El valor de la DUA viene repetido en todas sus filas.** La DUA
+  `10-235-2026-113318` (INGRAM MICRO) consolida 22 guías aéreas y estampa USD 4,28 M
+  en las 22: sumar la columna da USD 94 M. `prorratear_valor_dua` reparte el valor
+  por peso, y la clave de reparto es `(dua, valor)` porque una misma DUA puede
+  traer más de un valor declarado. Sin corregir, el FOB aéreo de julio se infla
+  **47%** y el CIF total de importación 12%. Con el prorrateo, julio 2026 da
+  **CIF 4,71 mil M USD**, la escala mensual real del Perú
+- **El 39% de las guías declara más de una partida.** `PARTIDAS ARANCELARIAS` es una
+  lista separada por comas y el valor no está desglosado por ninguna;
+  `PARTIDA ARANCELARIA` (singular, 4 díg.) es la *representativa* y coincide con la
+  primera de la lista solo el 72% de las veces. Por eso la grilla se queda a nivel
+  de documento y se publican `n_partidas` y `multi_partida`, que permiten aislar
+  los casos de una sola partida
+- **Los códigos perdieron el cero inicial** al viajar como enteros (`604` = partida
+  06.04). Se repone con `pad_start`. Validado contra `resources/dim_partida.csv`:
+  **100% de las partidas de 4 díg. y 99,9% de las subpartidas son códigos reales**
+- **Envoltorio de Excel**: `PARTIDAS ARANCELARIAS` llega como `="80440.0"` en
+  ex_maritimo e im_aereo. Hay que quitar `="`, `"` y el `.0` antes de partir por comas
+- **Los enteros cambian de formato entre meses**: mayo escribe los TEUs como `"2.0"`
+  y junio/julio como `"2"`. Castear directo a Int64 anula los primeros — las
+  importaciones marítimas de mayo sumaban 0 TEUs. Se castea Float64 → Int64
+- **La misma entidad se escribe distinto entre formatos**: `UX- AIR EUROPA` (impo) vs
+  `UX - AIR EUROPA` (expo); `5Y-ATLAS AIR INC` vs `INC.`; el almacén lleva código
+  numérico en marítimo (`3306-ALMACENES MUNDO`) y no en aéreo. `clean_manifiestos`
+  las unifica: 32 aerolíneas y 23 navieras, no el doble
+- **Cobertura muy despareja — el valor NO está en todas las guías**, porque solo
+  existe donde la guía cruzó con una DUA:
+
+| Formato | FOB no nulo | HS no nulo | País | TEUs |
+|---|---|---|---|---|
+| impo marítimo | 96% (jun-jul), **57% (may)** | ídem | sí | sí |
+| impo aéreo | 78–100% | 15–77% | sí | — |
+| expo marítimo | **44–71%** | ídem | sí | sí |
+| expo aéreo | **1–10%** ⚠ | **0,5–10%** ⚠ | **100% nulo** ⚠ | — |
+
+- **Mayo es un extracto más flaco**: solo el 57% de sus guías marítimas de
+  importación tiene DUA, contra 96% en junio y julio. No es un bug del pipeline —
+  es la fuente. Comparar valor mes a mes sin mirar la cobertura da caídas falsas
+- **En exportación la base sólida es peso / TEUs / contenedores, no el valor**: los
+  1,30 mil M FOB de julio son ~20% de la exportación real peruana. El dashboard
+  arranca en peso/TEUs y avisa el % de guías con dato cuando la selección toca FOB
+- `expo_aereo` es el **caso de borde** de esta capa, el equivalente a Bolivia en
+  freemium: sin país, sin puerto, casi sin valor ni HS. Todo cambio se prueba con él
+- `TEUS` no es exactamente `cont_20 + 2×cont_40` (difieren 0,03%–1,7%): la fuente
+  declara TEUs aparte y hay contenedores de 45 pies. Ambas métricas se publican
 
 ## Datos — Capa freemium (FASE 11)
 
@@ -293,6 +394,27 @@ OneDrive bloquea carpetas mientras sincroniza y hace fallar operaciones de git
 que borran directorios. Ante un checkout trabado: verificar que no haya proceso
 git vivo, borrar `.git/index.lock`, y `git restore .`.
 
+Lo mismo vale para el código: `shutil.rmtree` sobre una carpeta del repo falla
+con `PermissionError [WinError 5]` y deja el directorio a medio borrar.
+`build_manifiestos.py` reconstruye su lake borrando **archivos** y no carpetas
+(`vaciar_lake`), justamente por esto. Un build que dejó menos filas de las
+esperadas es el síntoma.
+
+### Streamlit no deja escribir el estado de un widget ya instanciado
+Los botones de preset del constructor no pueden hacer
+`st.session_state["mf_filas"] = [...]` dentro del `if st.button(...)`: para ese
+momento los selectores ya existen y Streamlit tira
+`StreamlitAPIException`. Van como `on_click=`, que corre antes del rerun.
+
+### AppTest devuelve pandas, no polars
+`at.dataframe[0].value` es un `pandas.DataFrame` aunque el módulo trabaje con
+Polars: `len(df)`, no `df.height`.
+
+### El caso de borde de manifiestos es `expo_aereo`
+Sin país, sin puerto de destino, con FOB en el 6% de las guías y HS en el 6%.
+Es a esta capa lo que Bolivia es a la freemium. `tests/test_dashboard_manifiestos.py`
+lo cubre; cualquier cambio en el constructor se prueba también contra él.
+
 ## Dependencias actuales
 
 ```
@@ -318,9 +440,10 @@ plotly      # gráficos en el dashboard (solo premium; freemium dibuja con HTML/
 ```
 python run.py                      # pipeline premium: inbox → DuckDB
 python build_freemium.py           # precómputo freemium: data/freemium/ → resources/freemium/
-streamlit run src/dashboard.py     # dashboard (ambos módulos)
+python build_manifiestos.py        # lake manifiestos: data/data-manifiestos/ → data/manifiestos/
+streamlit run src/dashboard.py     # dashboard (los tres módulos)
 uvicorn src.api:app --reload       # API
-pytest -v                          # 262 tests
+pytest -v                          # 396 tests
 ```
 
 ## Despliegue
