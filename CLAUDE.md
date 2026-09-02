@@ -74,10 +74,11 @@ tests/
   test_aggregations.py  # 19 tests para las 6 funciones de agregación + 2 tests de segmentación por periodo en run_aggregations()
   test_cleaning.py      # 12 tests para clean_raw_df()
   test_arquetipos.py    # 6 tests para clasificar_arquetipo() y add_unit_adjusted_quantity()
-  test_ingest_freemium.py    # 18 tests — 4 variantes de esquema, HS 6d, descarte de actor
-  test_cleaning_freemium.py  # 15 tests — unificación de socios entre países
-  test_metrics_freemium.py   # 34 tests — YoY nulo sin año base, shares, concentración
-  test_dashboard_freemium.py # 10 smoke tests con streamlit.testing — render real de las 4 pantallas
+  test_ingest_freemium.py    # 22 tests — 4 variantes de esquema, HS 6d, descarte de actor
+  test_cleaning_freemium.py  # 17 tests — unificación de socios entre países
+  test_metrics_freemium.py   # 39 tests — YoY nulo sin año base, shares, concentración
+  test_dashboard_freemium.py # 14 smoke tests con streamlit.testing — render real, BR y BO
+  test_deploy_compat.py      # compila cada fuente con Python 3.11, la versión del deploy
 data/
   inbox/           # Parquets nuevos para ingestar (procesados → se mueven a inbox/done/)
   inbox/done/      # Parquets ya procesados (no se reprocesarán)
@@ -90,7 +91,8 @@ resources/
   partner_aliases.yml   # Unificación de nombres de socio + buckets (no declarado / zona franca)
   freemium/             # Artefactos del precómputo freemium (versionados, ~42 MB)
     country_yearly.parquet  hs_yearly.parquet  partner_share.parquet
-    hhi.parquet  monthly_country.parquet  monthly_hs.parquet
+    partner_country.parquet  hhi.parquet  registros.parquet
+    monthly_country.parquet  monthly_hs.parquet
     base/               # Base particionada por país (68 MB, NO versionada — se regenera)
 .streamlit/
   config.toml      # Dark theme: #0f172a fondo, #38bdf8 acento
@@ -225,6 +227,72 @@ cambio se vea.
 - Tests automáticos en cada push
 - Lint automático (ruff o flake8)
 
+## Cómo trabajar en este proyecto
+
+Conocimiento operativo que no se deduce leyendo el código, y que cuesta caro
+redescubrir.
+
+### El dashboard freemium no recalcula nada
+Lee los artefactos de `resources/freemium/`. Si se toca `metrics_freemium.py`,
+`cleaning_freemium.py` o `ingest_freemium.py`, **hay que correr
+`python build_freemium.py`** o el cambio no se ve. Pasó: se arregló un bug de
+concentración, se reinició la app y el error seguía en pantalla porque los
+parquet eran los viejos.
+
+### Streamlit no recarga módulos importados de forma confiable
+Recarga `dashboard.py` al detectar cambios, pero `dashboard_freemium.py` puede
+quedar en memoria con la versión anterior. **Ante un cambio ahí, reiniciar el
+proceso** (`pkill -f "streamlit run"` y volver a levantar). Pasó: se agregó
+Perú al mapa de países y la interfaz seguía mostrando `PE`.
+El sidebar muestra `build <sha>` para saber qué versión está corriendo.
+
+### Verificar el render, no leer el código
+Los tests unitarios no ven los errores de esta capa, que son de datos: un nulo
+inesperado en una columna. Usar `streamlit.testing.v1.AppTest`, que ejecuta el
+render de verdad. Encontró tres bugs que 226 tests en verde no detectaban.
+
+```python
+at = AppTest.from_file("src/dashboard.py", default_timeout=300).run()
+at.button[0].click().run()                      # entrar a freemium
+at.session_state["fm_country"] = "BO"           # el valor crudo, no la etiqueta
+at.session_state["fm_screen"] = "registros"
+at.run()
+assert not at.exception
+```
+
+`set_value()` en un widget con `format_func` espera el valor interno, no lo que
+se ve en pantalla.
+
+### Bolivia es el caso de borde
+Economía chica, partidas sin descripción, y códigos con largos atípicos. Rompió
+dos veces. Cualquier cambio en el dashboard se prueba con BO además del país por
+defecto.
+
+### El entorno de despliegue no es el local
+Streamlit Cloud corre **Python 3.11** y el entorno local es más nuevo. Hay
+sintaxis que compila acá y revienta allá — anidar f-strings con la misma comilla
+es válida desde 3.12 y tumbó un deploy con 226 tests en verde.
+`tests/test_deploy_compat.py` compila cada fuente con el intérprete 3.11 real;
+`ast.parse(feature_version=(3,11))` NO sirve, el cambio es del tokenizer.
+
+### Antes de tocar los datos, mirar los datos
+Los dos bugs más graves (el cero inicial de los capítulos 01-09, y la
+concentración infinita) no los delató una excepción ni un test: los delató
+**leer las descripciones y ver que no tenían sentido**. "PARA REPRODUCCIÓN,
+PUROS POR CRUZA" no puede ser un cereal. Ante una fuente nueva, inspeccionar
+valores reales antes de escribir la transformación.
+
+### Validar contra una referencia externa
+`resources/dim_partida.csv` tiene las 5.633 subpartidas HS válidas: sirve para
+comprobar que una normalización de códigos produjo partidas reales (hoy 99.5%).
+Para los totales, las cifras oficiales de cada instituto — ver la tabla de
+cobertura arriba.
+
+### El repo está dentro de OneDrive
+OneDrive bloquea carpetas mientras sincroniza y hace fallar operaciones de git
+que borran directorios. Ante un checkout trabado: verificar que no haya proceso
+git vivo, borrar `.git/index.lock`, y `git restore .`.
+
 ## Dependencias actuales
 
 ```
@@ -252,7 +320,7 @@ python run.py                      # pipeline premium: inbox → DuckDB
 python build_freemium.py           # precómputo freemium: data/freemium/ → resources/freemium/
 streamlit run src/dashboard.py     # dashboard (ambos módulos)
 uvicorn src.api:app --reload       # API
-pytest -v                          # 226 tests
+pytest -v                          # 262 tests
 ```
 
 ## Despliegue
