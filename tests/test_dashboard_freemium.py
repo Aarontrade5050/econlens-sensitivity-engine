@@ -31,11 +31,13 @@ def freemium() -> AppTest:
 # Selector de módulo
 # ---------------------------------------------------------------------------
 
-def test_landing_offers_both_modules():
+def test_landing_offers_the_three_modules():
     at = AppTest.from_file(str(APP), default_timeout=300).run()
 
     assert not at.exception
-    assert [b.label for b in at.button] == ["Entrar a Comex Latam", "Entrar al Motor ISE"]
+    assert [b.label for b in at.button] == [
+        "Entrar a Comex Latam", "Entrar al Constructor", "Entrar al Motor ISE",
+    ]
 
 
 def test_landing_does_not_ask_for_a_file_upfront():

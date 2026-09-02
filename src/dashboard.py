@@ -49,7 +49,7 @@ def _render_landing() -> None:
     st.caption("Plataforma de inteligencia de comercio exterior")
     st.write("")
 
-    izq, der = st.columns(2, gap="large")
+    izq, centro, der = st.columns(3, gap="large")
 
     with izq, st.container():
         st.markdown("""
@@ -67,6 +67,24 @@ def _render_landing() -> None:
         """, unsafe_allow_html=True)
         if st.button("Entrar a Comex Latam", use_container_width=True, type="primary"):
             st.session_state["view_mode"] = "freemium"
+            st.rerun()
+
+    with centro, st.container():
+        st.markdown("""
+            <div class="landing-card">
+              <div class="tag" style="color:#4ade80">Manifiestos Perú</div>
+              <h3>🧮 Constructor de tablas</h3>
+              <p>Tabla dinámica sobre los manifiestos de carga del Perú,
+                 aéreos y marítimos, de entrada y de salida.</p>
+              <ul>
+                <li>TEUs y contenedores por naviera</li>
+                <li>Peso y valor por aerolínea, puerto o partida</li>
+                <li>Tus propias dimensiones y métricas, sin SQL</li>
+              </ul>
+            </div>
+        """, unsafe_allow_html=True)
+        if st.button("Entrar al Constructor", use_container_width=True):
+            st.session_state["view_mode"] = "manifiestos"
             st.rerun()
 
     with der, st.container():
@@ -103,6 +121,13 @@ if st.session_state["view_mode"] == "freemium":
 
     _boton_volver()
     _render_freemium()
+    st.stop()
+
+if st.session_state["view_mode"] == "manifiestos":
+    from src.dashboard_manifiestos import render as _render_manifiestos
+
+    _boton_volver()
+    _render_manifiestos()
     st.stop()
 
 _boton_volver()
