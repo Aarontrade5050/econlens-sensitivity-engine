@@ -1148,3 +1148,53 @@ TOTAL TESTS: 262 – todos verdes
     cuál se publica y decirlo.
 
     PRESENTABLES SIN ACLARACIÓN: solo BR, CO, PE y CL.
+
+----------------------------------------------------------------------------------------
+2026-08-18 (cierre) – TRAZABILIDAD DEL DESPLIEGUE Y TRASPASO DE CONOCIMIENTO
+----------------------------------------------------------------------------------------
+
+[✔] Marcador de build en el sidebar (commit ad8bdc5)
+    - Problema: tras un push no había forma de saber si Streamlit Cloud ya había
+      tomado la versión nueva, salvo adivinar mirando la interfaz. Pasó dos veces
+      en la sesión: una con el nombre "PE" y otra con el "inf" de Honduras, y en
+      ambas el código ya estaba bien
+    - version_desplegada() lee el SHA corto directo de .git, sin invocar el
+      binario git (puede no existir en el contenedor). Si falla muestra "local"
+    - El sidebar ahora dice "build <sha>": comparar contra `git log -1` y listo
+
+[✔] Sección "Cómo trabajar en este proyecto" en CLAUDE.md (commit 9ee0903)
+    Conocimiento operativo que no se deduce del código, ocho puntos:
+      1. El dashboard freemium no recalcula — tras tocar métricas, correr
+         build_freemium.py o el cambio no se ve
+      2. Streamlit no recarga módulos importados de forma confiable — reiniciar
+         el proceso ante cambios en dashboard_freemium.py
+      3. Verificar el RENDER con streamlit.testing, no leyendo el código
+         (encontró 3 bugs que 226 tests en verde no veían), con el ejemplo y la
+         trampa de set_value() con format_func
+      4. Bolivia es el caso de borde que rompe cosas
+      5. El entorno de despliegue es Python 3.11 y el local no
+      6. Ante una fuente nueva, mirar los VALORES antes de escribir la
+         transformación — los dos bugs graves los delató leer las descripciones
+      7. Validar contra referencia externa: dim_partida para códigos, institutos
+         oficiales para totales
+      8. El repo está dentro de OneDrive y cómo destrabar un checkout
+
+[✔] Conteos de tests y lista de artefactos actualizados en CLAUDE.md
+[✔] README.md pasa a documentar los dos módulos (antes solo el motor ISE)
+
+ESTADO AL CIERRE DE LA SESIÓN "modulos-freemium-premium"
+    · 7 commits, todos desplegados. Último: 9ee0903
+    · 262 tests verdes
+    · 10 países, 8.5M filas agregadas, 42 MB de artefactos versionados
+    · Los dos módulos en producción; el premium quedó intacto
+
+PENDIENTES QUE PASAN A LA PRÓXIMA SESIÓN
+    [~] Reclamar al proveedor: AR inflado 1.8x, MX cubre 19-36%, UY inflado,
+        BO con 57% de sus expo. BR y CO calzan al 100% con el mismo código,
+        así que la evidencia de que es problema de fuente está hecha
+    [~] Decidir qué definición de exportación se publica para HN y PA
+        (nacional vs. incluyendo maquila / Zona Libre de Colón)
+    [~] Investigar la hipótesis de zonas francas en Uruguay — el dato está
+    [~] use_container_width deprecado en 11 lugares de dashboard.py
+    [~] Unidades volumétricas (M3, LT, GL) para COMMODITY — sigue postergado
+    [~] Repo público con los artefactos: decisión tomada de dejarlo así
