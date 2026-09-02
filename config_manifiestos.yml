@@ -1,0 +1,219 @@
+# EconoLens Manifiestos — Schema canónico de los manifiestos de carga del Perú
+#
+# Fuente: data/data-manifiestos/*_{im|ex}_{aereo|maritimo}_*.csv
+# El flujo y la vía se derivan del NOMBRE del archivo; el periodo se deriva de
+# las columnas DIA/MES/AÑO, que están completas y traen un solo mes por archivo.
+# El nombre no sirve para el periodo: tres formatos usan `..._2026_7.csv` y
+# ex_aereo usa `..._072026_7.csv`.
+#
+# A diferencia de config.yml y config_freemium.yml, acá el mapeo es POR FORMATO
+# y no por lista de alias: los mismos nombres de columna significan cosas
+# distintas según el archivo. `EXPORTADOR` es el actor peruano en ex_aereo y la
+# contraparte extranjera en im_aereo; `CONSIGNATARIO` es el actor peruano en
+# im_maritimo y el comprador extranjero en ex_maritimo. Una lista de alias
+# global los cruzaría.
+
+lectura:
+  separator: ";"
+  encoding: "utf8"
+
+# nivel:
+#   fila = el dato es propio de cada guía / conocimiento de embarque
+#   dua  = el dato pertenece a la declaración y viene REPETIDO en todas sus
+#          filas. Sumarlo tal cual sobrecuenta (una DUA de 22 guías repite su
+#          FOB 22 veces). Estos campos se prorratean por peso en cleaning.
+campos:
+  # --- Dimensiones -------------------------------------------------------
+  - {name: actor,              dtype: string, nivel: fila}
+  - {name: ruc_actor,          dtype: string, nivel: fila}
+  - {name: contraparte,        dtype: string, nivel: fila}
+  - {name: pais,               dtype: string, nivel: fila}
+  - {name: puerto_embarque,    dtype: string, nivel: fila}
+  - {name: puerto_desembarque, dtype: string, nivel: fila}
+  - {name: transportista,      dtype: string, nivel: fila}
+  - {name: nave_vuelo,         dtype: string, nivel: fila}
+  - {name: agencia_carga,      dtype: string, nivel: fila}
+  - {name: agente_aduana,      dtype: string, nivel: fila}
+  - {name: agente_portuario,   dtype: string, nivel: fila}
+  - {name: almacen,            dtype: string, nivel: fila}
+  - {name: aduana,             dtype: string, nivel: fila}
+  - {name: canal,              dtype: string, nivel: dua}
+  - {name: incoterm,           dtype: string, nivel: dua}
+  - {name: tipo_carga,         dtype: string, nivel: fila}
+  - {name: desc_producto,      dtype: string, nivel: fila}
+  - {name: partida_4d,         dtype: string, nivel: dua}
+  - {name: desc_partida,       dtype: string, nivel: dua}
+  - {name: capitulo,           dtype: string, nivel: dua}
+  - {name: desc_capitulo,      dtype: string, nivel: dua}
+  - {name: seccion,            dtype: string, nivel: dua}
+  - {name: desc_seccion,       dtype: string, nivel: dua}
+
+  # --- Identificadores ---------------------------------------------------
+  - {name: dua,                dtype: string, nivel: fila}
+  - {name: manifiesto,         dtype: string, nivel: fila}
+  - {name: documento,          dtype: string, nivel: fila}
+  - {name: partidas,           dtype: string, nivel: dua}
+
+  # --- Fecha (requeridas: de acá sale el periodo) ------------------------
+  - {name: dia,                dtype: int,    nivel: fila, requerido: true}
+  - {name: mes,                dtype: int,    nivel: fila, requerido: true}
+  - {name: anio,               dtype: int,    nivel: fila, requerido: true}
+
+  # --- Métricas ----------------------------------------------------------
+  # Las cuatro monetarias son de la DUA: se prorratean antes de guardarse.
+  - {name: fob_usd,            dtype: float,  nivel: dua}
+  - {name: cif_usd,            dtype: float,  nivel: dua}
+  - {name: flete_usd,          dtype: float,  nivel: dua}
+  - {name: seguro_usd,         dtype: float,  nivel: dua}
+  # Las de carga son reales por guía: no se tocan.
+  - {name: peso_kg,            dtype: float,  nivel: fila}
+  - {name: peso_neto_kg,       dtype: float,  nivel: fila}
+  - {name: teus,               dtype: int,    nivel: fila}
+  - {name: cont_20,            dtype: int,    nivel: fila}
+  - {name: cont_40,            dtype: int,    nivel: fila}
+
+# Mapeo campo canónico → columna real, por formato. Lo que no aparece queda
+# nulo: `ex_aereo` no trae país ni puerto de destino, e `im_aereo` no trae
+# contenedores. La UI esconde la dimensión cuando no hay dato.
+formatos:
+
+  impo_maritimo:
+    actor:              "CONSIGNATARIO"
+    ruc_actor:          "RUC IMPORTADOR"
+    pais:               "PAIS DE EMBARQUE"
+    puerto_embarque:    "PUERTO DE EMBARQUE"
+    puerto_desembarque: "PUERTO DE DESEMBARQUE"
+    transportista:      "COMPAÑIA DE TRANSPORTE"
+    nave_vuelo:         "NAVE"
+    agencia_carga:      "AGENCIA DE CARGA"
+    agente_aduana:      "AGENTE DE ADUANA"
+    agente_portuario:   "AGENTE PORTUARIO"
+    almacen:            "ALMACEN"
+    aduana:             "ADUANA"
+    canal:              "CANAL"
+    incoterm:           "INCOTERM"
+    tipo_carga:         "STATUS DEL CONTENEDOR"
+    desc_producto:      "DESCRIPCION PRODUCTO COMERCIAL"
+    partida_4d:         "PARTIDA ARANCELARIA"
+    desc_partida:       "DESCRIPCION PARTIDA ARANCELARIA"
+    capitulo:           "CAPITULO ARANCELARIO"
+    desc_capitulo:      "DESCRIPCION CAP ARANCELARIO"
+    seccion:            "SECCION ARANCELARIA"
+    desc_seccion:       "DESCRIPCION SECCION ARANCELARIA"
+    partidas:           "PARTIDAS ARANCELARIAS"
+    dua:                "DUA"
+    manifiesto:         "NÚMERO DE MANIFIESTO"
+    documento:          "CONOCIMIENTO DE EMBARQUE"
+    dia:                "DIA"
+    mes:                "MES"
+    anio:               "AÑO"
+    fob_usd:            "FOB"
+    cif_usd:            "CIF"
+    flete_usd:          "FLETE"
+    seguro_usd:         "SEGURO"
+    peso_kg:            "PESO EN KG BRUTO"
+    peso_neto_kg:       "PESO EN KG NETO"
+    teus:               "TEUS"
+    cont_20:            "CONTENEDORES 20"
+    cont_40:            "CONTENEDORES 40"
+
+  impo_aereo:
+    actor:              "IMPORTADOR"
+    ruc_actor:          "RUC IMPORTADOR"
+    contraparte:        "EXPORTADOR"
+    pais:               "PAÍS DE ORIGEN"
+    puerto_embarque:    "PUERTO DE EMBARQUE"
+    transportista:      "AEROLINEA"
+    nave_vuelo:         "NUMERO DE VUELO"
+    agencia_carga:      "AGENCIA DE CARGA"
+    agente_aduana:      "AGENTE DE ADUANA"
+    almacen:            "ALMACEN"
+    canal:              "CANAL"
+    incoterm:           "INCOTERM"
+    tipo_carga:         "TIPO DE CARGA"
+    desc_producto:      "DESCRIPCION PRODUCTO COMERCIAL"
+    partida_4d:         "PARTIDA ARANCELARIA"
+    desc_partida:       "DESCRIPCION PARTIDA ARANCELARIA"
+    capitulo:           "CAPITULO ARANCELARIO"
+    desc_capitulo:      "DESCRIPCION CAP ARANCELARIO"
+    seccion:            "SECCION ARANCELARIA"
+    desc_seccion:       "DESCRIPCION SECCION ARANCELARIA"
+    partidas:           "PARTIDAS ARANCELARIAS"
+    dua:                "DUA"
+    manifiesto:         "NÚMERO DE MANIFIESTO"
+    documento:          "GUÍA DE TRANSPORTE"
+    dia:                "DÍA"
+    mes:                "MES"
+    anio:               "AÑO"
+    fob_usd:            "FOB"
+    cif_usd:            "CIF"
+    flete_usd:          "FLETE"
+    seguro_usd:         "SEGURO"
+    peso_kg:            "PESO EN KG"
+
+  expo_maritimo:
+    actor:              "EMBARCADOR"
+    ruc_actor:          "RUC DE EXPORTADOR"
+    contraparte:        "CONSIGNATARIO"
+    pais:               "PAIS DE DESEMBARQUE"
+    puerto_embarque:    "PUERTO DE EMBARQUE"
+    puerto_desembarque: "PUERTO DE DESEMBARQUE"
+    transportista:      "COMPAÑIA NAVIERA"
+    nave_vuelo:         "NAVE"
+    agencia_carga:      "AGENCIA DE CARGA"
+    agente_aduana:      "AGENTE DE ADUANA"
+    agente_portuario:   "AGENTE PORTUARIO"
+    almacen:            "ALMACEN"
+    aduana:             "ADUANA"
+    tipo_carga:         "TIPO DE PRODUCTO"
+    desc_producto:      "DESCRIPCION PRODUCTO COMERCIAL"
+    partida_4d:         "PARTIDA ARANCELARIA"
+    desc_partida:       "DESCRIPCION PARTIDA ARANCELARIA"
+    capitulo:           "CAPITULO ARANCELARIO"
+    desc_capitulo:      "DESCRIPCION CAP ARANCELARIO"
+    seccion:            "SECCION ARANCELARIA"
+    desc_seccion:       "DESCRIPCION SECCION ARANCELARIA"
+    partidas:           "PARTIDAS ARANCELARIAS"
+    dua:                "DUA"
+    manifiesto:         "NUMERO DE MANIFIESTO"
+    documento:          "CONOCIMIENTO DE EMBARQUE"
+    dia:                "DIA"
+    mes:                "MES"
+    anio:               "AÑO"
+    fob_usd:            "FOB"
+    peso_kg:            "PESO EN KG"
+    teus:               "TEUS"
+    cont_20:            "CONTENEDORES 20"
+    cont_40:            "CONTENEDORES 40"
+
+  # El formato más pobre: PAÍS DE DESTINO y PUERTO DE DESEMBARQUE vienen 100%
+  # nulos y solo el 7% de las filas trae FOB. Su base sólida es el peso.
+  # No hay columna de lista de partidas: la subpartida única hace ese papel.
+  expo_aereo:
+    actor:              "EXPORTADOR"
+    ruc_actor:          "RUC EXPORTADOR"
+    contraparte:        "IMPORTADOR"
+    pais:               "PAÍS DE DESTINO"
+    puerto_desembarque: "PUERTO DE DESEMBARQUE"
+    transportista:      "AEROLINEA"
+    nave_vuelo:         "NUMERO DE VUELO"
+    agencia_carga:      "AGENCIA DE CARGA"
+    agente_aduana:      "AGENTE DE ADUANA"
+    almacen:            "ALMACEN"
+    tipo_carga:         "TIPO DE CARGA"
+    desc_producto:      "DESCRIPCIÓN PRODUCTO COMERCIAL"
+    partida_4d:         "PARTIDA ARANCELARIA"
+    desc_partida:       "DESCRIPCION PARTIDA ARANCELARIA"
+    capitulo:           "CAPITULO ARANCELARIO"
+    desc_capitulo:      "DESCRIPCION CAP ARANCELARIO"
+    seccion:            "SECCION ARANCELARIA"
+    desc_seccion:       "DESCRIPCION SECCION ARANCELARIA"
+    partidas:           "SUBPARTIDA ARANCELARIA"
+    dua:                "DUA"
+    manifiesto:         "NÚMERO DE MANIFIESTO"
+    documento:          "GUÍA HIJA"
+    dia:                "DIA"
+    mes:                "MES"
+    anio:               "AÑO"
+    fob_usd:            "FOB"
+    peso_kg:            "PESO EN KG"
