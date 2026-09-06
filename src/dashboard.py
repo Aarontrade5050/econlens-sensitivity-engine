@@ -73,17 +73,17 @@ def _render_landing() -> None:
         st.markdown("""
             <div class="landing-card">
               <div class="tag" style="color:#4ade80">Manifiestos Perú</div>
-              <h3>🧮 Constructor de tablas</h3>
-              <p>Tabla dinámica sobre los manifiestos de carga del Perú,
+              <h3>🔎 Buscador de manifiestos</h3>
+              <p>Quién mueve qué en los manifiestos de carga del Perú,
                  aéreos y marítimos, de entrada y de salida.</p>
               <ul>
-                <li>TEUs y contenedores por naviera</li>
-                <li>Peso y valor por aerolínea, puerto o partida</li>
-                <li>Tus propias dimensiones y métricas, sin SQL</li>
+                <li>Busca una empresa, naviera, agente, puerto o partida</li>
+                <li>Mira con quién trabaja y cuánto pesa en su mercado</li>
+                <li>Arma tu propia tabla cuando la ficha no alcanza</li>
               </ul>
             </div>
         """, unsafe_allow_html=True)
-        if st.button("Entrar al Constructor", use_container_width=True):
+        if st.button("Entrar al Buscador", use_container_width=True):
             st.session_state["view_mode"] = "manifiestos"
             st.rerun()
 

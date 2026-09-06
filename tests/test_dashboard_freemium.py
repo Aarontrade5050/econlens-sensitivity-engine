@@ -36,7 +36,7 @@ def test_landing_offers_the_three_modules():
 
     assert not at.exception
     assert [b.label for b in at.button] == [
-        "Entrar a Comex Latam", "Entrar al Constructor", "Entrar al Motor ISE",
+        "Entrar a Comex Latam", "Entrar al Buscador", "Entrar al Motor ISE",
     ]
 
 

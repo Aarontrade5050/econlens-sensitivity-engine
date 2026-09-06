@@ -165,8 +165,71 @@ def css() -> None:
       .fm-lock {{ text-decoration:line-through; text-decoration-color:{C['orange']};
           text-decoration-thickness:1.5px; color:#A8AEC6; filter:blur(2.6px); user-select:none; }}
 
-      /* Tabla dinámica: la grilla nativa de Streamlit, con la misma piel */
-      [data-testid="stDataFrame"] {{ border:1px solid {C['border']}; border-radius:10px; }}
       [data-testid="stMain"] [data-testid="stExpander"] details {{
           background:#fff; border:1px solid {C['border']}; border-radius:10px; }}
+      [data-testid="stMain"] [data-testid="stExpander"] summary p {{
+          font-size:13.5px; font-weight:600; color:{C['navy']} !important; }}
+
+      /* Botones: la regla `[data-testid="stMain"] *` de arriba les pinta el
+         texto de tinta oscura sobre el gris de Streamlit, que se lee mal y no
+         es de la paleta. Acá toman el mismo lenguaje que las tarjetas. */
+      [data-testid="stMain"] .stButton > button {{
+          background:#fff; border:1px solid {C['border']}; border-radius:8px;
+          padding:8px 15px; box-shadow:none; }}
+      [data-testid="stMain"] .stButton > button p {{
+          color:{C['navy']} !important; font-size:13.5px !important;
+          font-weight:600 !important; }}
+      [data-testid="stMain"] .stButton > button:hover:not(:disabled) {{
+          background:{C['navy']}; border-color:{C['navy']}; }}
+      [data-testid="stMain"] .stButton > button:hover:not(:disabled) p {{
+          color:#fff !important; }}
+      /* El deshabilitado marca la opción vigente —el manifiesto que ya estás
+         mirando—, así que va relleno y no apagado. */
+      [data-testid="stMain"] .stButton > button:disabled {{
+          background:{C['navy']}; border-color:{C['navy']}; opacity:1; }}
+      [data-testid="stMain"] .stButton > button:disabled p {{ color:#fff !important; }}
+
+      /* Campo de búsqueda: sin el borde propio de baseweb, que es gris */
+      [data-testid="stMain"] .stTextInput div[data-baseweb="input"] {{
+          background:transparent; border:none; }}
+      [data-testid="stMain"] .stTextInput input {{
+          background:#FCFCFE; border:1.5px solid {C['bar_prev']}; border-radius:9px;
+          padding:13px 16px; font-size:16px; color:{C['ink']}; }}
+      [data-testid="stMain"] .stTextInput input:focus {{
+          border-color:{C['blue']}; background:#fff; }}
+      [data-testid="stMain"] .stTextInput input::placeholder {{
+          color:#8A91AE; font-size:15.5px; }}
+
+      /* Etiquetas de un multiselect en el área clara: azul de la paleta, no el
+         rojo que Streamlit trae por defecto */
+      [data-testid="stMain"] [data-baseweb="tag"] {{
+          background:{C['blue']} !important; border-radius:5px; }}
+      [data-testid="stMain"] [data-baseweb="tag"] span {{ color:#fff !important; }}
+      [data-testid="stMain"] [data-baseweb="tag"] svg {{ fill:#fff; }}
+      /* El rótulo de un selector va como kicker. Solo el de los selectores: la
+         misma regla sobre `label p` a secas deja el texto de una casilla de
+         verificación en versalitas de 11px y la vuelve ilegible. */
+      [data-testid="stMain"] .stSelectbox label p,
+      [data-testid="stMain"] .stMultiSelect label p,
+      [data-testid="stMain"] .stTextInput label p {{
+          font-size:11px !important; letter-spacing:1.6px; text-transform:uppercase;
+          font-weight:700 !important; color:{C['faint']} !important; }}
+      [data-testid="stMain"] .stCheckbox label p {{
+          font-size:13.5px !important; font-weight:500 !important;
+          color:{C['ink']} !important; }}
+
+      /* Tarjeta que envuelve bloques de Streamlit —columnas, botones—, donde
+         un `st.markdown` no alcanza porque no puede contener otros widgets.
+         Se engancha con `st.container(key="fmcard-…")`, que deja la clase
+         `st-key-fmcard-…` en el DOM. */
+      [data-testid="stMain"] [class*="st-key-fmcard"] {{
+          background:#fff; border:1px solid {C['border']}; border-radius:12px;
+          padding:18px 22px; }}
+
+      /* Fila de una tabla que lleva a una ficha */
+      .fm-t tr.fm-click td {{ cursor:pointer; }}
+      .fm-bar {{ height:7px; background:{C['track']}; border-radius:4px; overflow:hidden; }}
+      .fm-bar > div {{ height:100%; border-radius:4px; background:{C['blue']}; }}
+      .fm-total td {{ border-top:2px solid {C['border']} !important; font-weight:700;
+          color:{C['navy']}; }}
     </style>""", unsafe_allow_html=True)
