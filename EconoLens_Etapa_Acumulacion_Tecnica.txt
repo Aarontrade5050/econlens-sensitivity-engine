@@ -1198,3 +1198,141 @@ PENDIENTES QUE PASAN A LA PRÓXIMA SESIÓN
     [~] use_container_width deprecado en 11 lugares de dashboard.py
     [~] Unidades volumétricas (M3, LT, GL) para COMMODITY — sigue postergado
     [~] Repo público con los artefactos: decisión tomada de dejarlo así
+
+----------------------------------------------------------------------------------------
+2026-09-05 – FASE 12: TERCER MÓDULO SOBRE MANIFIESTOS DE CARGA DEL PERÚ
+----------------------------------------------------------------------------------------
+
+Timebox de 2 sesiones (~5 h) con checkpoint de corte. Cerrado dentro del plazo.
+
+[✔] Lake parquet particionado + DuckDB (commits a86dff8, 8d76405)
+    - data/manifiestos/periodo=/flujo=/via=/datos.parquet, hive. 32,5 MB de CSV
+      quedan en 4,7 MB de parquet zstd. No se versiona
+    - config_manifiestos.yml mapea POR FORMATO y no por alias global: los mismos
+      nombres significan cosas distintas según el archivo. EXPORTADOR es el actor
+      peruano en ex_aereo y la contraparte extranjera en im_aereo. Una lista de
+      alias los habría cruzado
+    - El flujo y la vía salen del NOMBRE del archivo; el periodo, de DIA/MES/AÑO,
+      porque ex_aereo escribe `..._072026_7.csv` y los otros `..._2026_7.csv`
+
+[✔] LO QUE DEFINIÓ EL MÓDULO: una fila es una guía, no una declaración
+    - Una DUA que consolida varias guías estampa su FOB/CIF TOTAL en cada una.
+      La DUA de INGRAM MICRO cubre 22 guías y repite USD 4,28 M en las 22:
+      sumar la columna da USD 94 M
+    - Sin corregir, el FOB aéreo de julio 2026 se infla 47% y el CIF total de
+      importación 12%. prorratear_valor_dua reparte por peso, con clave
+      (dua, valor) porque una DUA puede traer más de un valor declarado
+    - Verificación: julio 2026 da CIF de importación 4,71 mil M USD, la escala
+      mensual real del Perú. Sin prorrateo daban 5,26 mil M
+
+[✔] Tres trampas más de la fuente, encontradas perfilando y no por excepciones
+    - Los enteros cambian de formato entre meses: mayo escribe los TEUs como
+      "2.0" y junio/julio como "2". Castear directo a Int64 anula los primeros
+      y las importaciones marítimas de mayo sumaban 0 TEUs. Se castea
+      Float64 → Int64
+    - Los códigos HS perdieron el cero inicial al viajar como enteros (604 =
+      partida 06.04). Validado contra dim_partida: 100% de las partidas de
+      4 díg. y 99,9% de las subpartidas son códigos reales
+    - shutil.rmtree sobre una carpeta del repo falla con PermissionError porque
+      OneDrive la mantiene abierta, y dejaba el lake a medio borrar. El síntoma
+      fue un build con 218.750 filas en vez de 251.162. vaciar_lake borra
+      archivos y no carpetas
+
+[✔] Cobertura desigual del valor — la restricción que ordena todo el módulo
+    - El valor solo existe donde la guía cruzó con una DUA: 96% en impo
+      marítima, 78-100% en impo aérea, 44-71% en expo marítima y 1-10% en
+      expo aérea
+    - Peso, TEUs y contenedores están en el 100% de las guías. Todo ranking va
+      sobre volumen físico y el valor entra con su cobertura declarada al lado
+    - Mayo es un extracto más flaco de la fuente: 57% de sus guías marítimas de
+      importación tiene DUA contra 96% en junio y julio. No es el pipeline
+
+ESTADO AL CIERRE
+    · 5 commits en la rama fase12-manifiestos, 396 tests verdes
+    · 251.162 guías de mayo a julio 2026, consultables en 20-115 ms
+
+----------------------------------------------------------------------------------------
+2026-09-06 – FASE 12.1: EL MÓDULO PASA DE CONSTRUCTOR DE TABLAS A BUSCADOR
+----------------------------------------------------------------------------------------
+
+El constructor funcionaba y estaba mal planteado. Pedía conocer las 27
+dimensiones antes de poder preguntar nada, no dejaba escribir un nombre, y
+devolvía una grilla cruda sin share ni comparación. Se rediseñó entero.
+
+[✔] LA REFLEXIÓN QUE CAMBIÓ EL DISEÑO
+    - Este es el único módulo que sabe quién es la naviera, la agencia de carga,
+      el agente de aduana, el almacén, la nave y el puerto. Comex Latam sabe
+      CUÁNTO; esto sabe QUIÉN CON QUIÉN
+    - El dato accionable no es una métrica: es un par de entidades. Importador ↔
+      naviera, importador ↔ agencia, importador ↔ proveedor. Quien compra esta
+      data vende un servicio logístico (quiere la cartera de su competencia) o
+      comercia mercadería (quiere el mapa competitivo)
+    - Una tabla dinámica de una dimensión no responde ninguna de las dos
+
+[✔] Capa de consulta por entidad — src/buscador.py (commit bd6c5a5)
+    - buscar() cruza un texto contra los trece roles y los cuatro manifiestos.
+      MAERSK aparece en SEIS roles: naviera, agente de aduana, agencia de carga,
+      consignataria de su propia carga, almacén y agente portuario
+    - captura(): cuánto del volumen total de cada cliente ya tiene un operador.
+      Samsung 47,7% con MAERSK, Supermercados 25,4%. Lo que falta para 100% está
+      en manos de otro. Es el número más accionable del módulo
+    - oportunidad(): las cuentas grandes donde no está. CITIKOLD mueve 6.123
+      TEUs y ninguno con MAERSK
+    - costo_implicito(): USD/TEU de flete y USD/kg de CIF, razón de sumas y no
+      promedio de razones. El mercado promedia 1.536 USD/TEU con 82% de cobertura
+
+[✔] Los tres denominadores, que es donde se rompen estas implementaciones
+    - participación de mercado (contra el cuadrante), reparto interno (contra el
+      total de la entidad) y captura (contra el total de ese cliente)
+    - Los tres salen de la misma función y lo que cambia es un argumento visible,
+      no dos consultas que se desincronizan
+    - docs/manifiestos_metricas.md es el contrato: cada número de las seis
+      pantallas con su columna, su operación, su universo y qué significa
+
+[✔] Interfaz rediseñada (commit 2eefd27)
+    Buscador con los 4 manifiestos y chips de rol · Resultados por rol y
+    manifiesto · Ficha de importador (con quién trabaja) · Ficha de operador
+    (cartera y cuentas sin atender) · Quién mueve más · Tabla dinámica
+
+[✔] LO QUE ENCONTRÓ CONTRASTAR CONTRA EL LAKE, Y NO LOS TESTS
+    - La lista de cajones de la fuente tenía 12 nombres y dejaba pasar 174. El
+      listado de prospección ofrecía visitar a un banco: la fuente escribe cada
+      endoso como nombre distinto (TO THE ORDER OF <banco>) y COSCO tiene tres
+      grafías. Son 186 nombres y el 21,0% de los contenedores
+    - alternativas contaba navieras siempre. En la ficha de una agencia de carga
+      la pregunta es con cuántas AGENCIAS trabaja ese cliente
+    - Cuatro cifras del diseño estaban puestas sin consultar: aerolíneas (32/31
+      contra 24/22 reales), depósitos y agentes (96/289 contra 70/334), y los
+      tramos de concentración
+
+[✔] CUATRO PELEAS CON STREAMLIT — todas en CLAUDE.md
+    1. st.dataframe se pinta sobre un canvas y toma el tema de config.toml, que
+       es el OSCURO del Motor ISE. Ningún CSS lo corrige: las tablas van en HTML
+    2. Un st.markdown no puede contener widgets, así que el ranking con su botón
+       por fila se quedaba sin fondo. Va con st.container(key="fmcard-…") y una
+       regla del tema
+    3. Markdown lee cuatro espacios como bloque de código y mostraba el HTML
+       como texto crudo. Todo sale por _md(), que aplana la sangría
+    4. Una grilla CSS con mínimo fijo se desbordaba y TAPABA la columna de
+       botones. El síntoma era que los botones parecían borrados, y AppTest no
+       lo ve porque no calcula layout
+
+[✔] Registro del texto: español neutro latinoamericano, nunca voseo rioplatense
+    Aaron corrigió a mano el voseo del canvas de diseño y lo pidió para todo lo
+    que venga. Se corrigieron también los mensajes de error de pivot.py
+
+ESTADO AL CIERRE DE LA SESIÓN "rediseño-buscador"
+    · 3 commits nuevos (bd6c5a5, 2eefd27, 6c954d7), 476 tests verdes
+    · 8 commits en total en la rama fase12-manifiestos, ya pusheados
+    · Diseño de referencia: canvas "Buscador de Manifiestos"
+
+PENDIENTES QUE PASAN A LA PRÓXIMA SESIÓN
+    [~] Mergear fase12-manifiestos a main. Streamlit Cloud despliega main, y el
+        lake no se versiona: en la nube el módulo mostrará su estado vacío
+    [~] Decidir el uploader de CSV para que el módulo sirva en la nube (~1 h).
+        Es lo que ya hace el premium con su file uploader
+    [~] Falta impo_aereo de junio 2026 en el lake: confirmar si el CSV existe
+    [~] Reclamar al proveedor el extracto completo de mayo (57% de guías con DUA
+        contra 96% en junio y julio)
+    [~] Voseo sin corregir en dashboard_freemium.py:520,568
+    [~] Los seis pendientes de la sesión anterior siguen abiertos
