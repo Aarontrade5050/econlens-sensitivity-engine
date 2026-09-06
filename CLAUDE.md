@@ -23,17 +23,18 @@ El output principal es una tabla con:
 - **FASE 9** ✅ Agregaciones con dimensión mensual (`periodo`) ✅ — Filtro Desde/Hasta en dashboard ✅ — File uploader multi-formato (parquet/csv/xlsx) ✅ — Pipeline en memoria por sesión de usuario (`_process_raw`) ✅
 - **FASE 10** ✅ Despliegue en Streamlit Community Cloud ✅ — `resources/dim_partida.csv` fallback estático de jerarquía HS ✅ — Navegador en cascada disponible en modo file-upload (sin DB) ✅
 - **FASE 11** ✅ Capa **Freemium** (estadística multi-país LATAM) ✅ — Ingesta + normalización de socios ✅ — Métricas de valor (YoY, share, concentración) ✅ — Precómputo offline ✅ — Selector de módulo + dashboard freemium de 4 pantallas ✅
-- **FASE 12** ✅ Capa **Manifiestos** (constructor de tabla dinámica) ✅ — Lake parquet particionado + DuckDB ✅ — Prorrateo del valor de la DUA ✅ — Catálogo de 27 dimensiones y 14 métricas ✅ — Tabla cruzada y presets ✅ — Tema compartido en `src/theme.py` ✅
+- **FASE 12** ✅ Capa **Manifiestos** ✅ — Lake parquet particionado + DuckDB ✅ — Prorrateo del valor de la DUA ✅ — Catálogo de 27 dimensiones y 15 métricas ✅ — Tabla cruzada ✅ — Tema compartido en `src/theme.py` ✅
+- **FASE 12.1** ✅ Rediseño a **buscador por entidad** ✅ — Búsqueda entre roles y manifiestos ✅ — Fichas de importador y de operador ✅ — Participación capturada y cuentas sin atender ✅ — Rankings por eslabón ✅ — `docs/manifiestos_metricas.md` como contrato con el diseño ✅
 
 ## Los tres módulos
 
 La app abre en un **selector de módulo**, no en un file uploader:
 
-| | Freemium — Comex Latam | Manifiestos — Constructor | Premium — Motor ISE |
+| | Freemium — Comex Latam | Manifiestos — Buscador | Premium — Motor ISE |
 |---|---|---|---|
 | Data | 10 países LATAM, precomputada | Manifiestos Perú, precomputada | Transaccional, la sube el usuario |
 | Granularidad | HS 6d × socio × mes | Guía / BL (documento de transporte) | HS 10d × importador × mes |
-| Métricas | YoY, share, concentración | Las que arme el usuario | ISE, elasticidad, volatilidad, shock |
+| Métricas | YoY, share, concentración | Volumen, share, captura, costo implícito | ISE, elasticidad, volatilidad, shock |
 | Procesamiento | Ninguno (lee artefactos) | Ninguno (consulta DuckDB) | Pipeline completo en memoria |
 | Entrada | `build_freemium.py` (offline) | `build_manifiestos.py` (offline) | `run.py` o file uploader |
 
@@ -72,7 +73,8 @@ src/
   ingest_manifiestos.py   # parse_formato() / scan_manifiestos_dir() / load_manifiesto_source()
   cleaning_manifiestos.py # prorratear_valor_dua() / normalize_hs() / clean_manifiestos()
   pivot.py                # DIMENSIONES + METRICAS + run_pivot() / run_totales() / cobertura()
-  dashboard_manifiestos.py# render() — constructor de tabla dinámica
+  buscador.py             # ROLES + buscar() / ranking() / captura() / oportunidad() / costo_implicito()
+  dashboard_manifiestos.py# render() — buscador, fichas, rankings y tabla dinámica
   theme.py                # paleta C, formateadores y CSS compartidos freemium ↔ manifiestos
 tests/
   test_ingest.py        # 12 tests para ingest_inbox() y funciones auxiliares
@@ -95,7 +97,8 @@ tests/
   test_cleaning_manifiestos.py  # 31 tests — prorrateo de DUA, ceros de HS, grafías
   test_build_manifiestos.py     # 10 tests — lake particionado, rebuild sin rmtree
   test_pivot.py                 # 40 tests — catálogo, validación, cruce, cobertura
-  test_dashboard_manifiestos.py # 22 smoke tests con AppTest — presets y expo_aereo
+  test_buscador.py              # 43 tests — roles, buckets, captura, denominadores
+  test_dashboard_manifiestos.py # 58 smoke tests con AppTest — búsqueda, fichas y expo_aereo
 data/
   inbox/           # Parquets nuevos para ingestar (procesados → se mueven a inbox/done/)
   inbox/done/      # Parquets ya procesados (no se reprocesarán)
@@ -105,6 +108,8 @@ data/
   freemium/        # {PAIS}/{IM|EX}/{AÑO}.parquet — fuente estadística LATAM (ignorada por git)
   data-manifiestos/# CSV crudos de manifiestos Perú (ignorados por git)
   manifiestos/     # lake: periodo=/flujo=/via=/datos.parquet (ignorado por git)
+docs/
+  manifiestos_metricas.md # contrato diseño↔código: cada número del buscador, con su SQL y su denominador
 resources/
   dim_partida.csv       # Jerarquía HS 2022 estática (5,633 filas) — fallback cuando no hay DB
   partner_aliases.yml   # Unificación de nombres de socio + buckets (no declarado / zona franca)
@@ -410,6 +415,49 @@ momento los selectores ya existen y Streamlit tira
 `at.dataframe[0].value` es un `pandas.DataFrame` aunque el módulo trabaje con
 Polars: `len(df)`, no `df.height`.
 
+### Streamlit no deja pintar `st.dataframe`
+La grilla nativa se dibuja sobre un canvas y toma el tema de
+`.streamlit/config.toml`, que es el **oscuro del Motor ISE**: dentro de un
+módulo claro sale negra y ningún CSS la corrige. Por eso el freemium nunca la
+usó y el buscador tampoco: las tablas se dibujan en HTML con la clase `.fm-t`.
+Se pierde el ordenamiento nativo y se gana el control de color.
+
+### Una tarjeta HTML no puede contener widgets
+`st.markdown` no envuelve botones ni columnas, así que un bloque que los mezcle
+—el ranking, con su botón por fila— se queda sin fondo. La salida es
+`st.container(key="fmcard-…")`, que deja una clase `st-key-fmcard-…` en el DOM,
+y una regla del tema que la pinta como `.fm-card`.
+
+### Markdown lee cuatro espacios como bloque de código
+Un fragmento de HTML indentado llega a la pantalla **como texto crudo**. Pasó
+con «Cuentas donde no está», cuyo cuerpo empezaba con salto de línea y catorce
+espacios. Todo el HTML del módulo sale por `_md()`, que aplana la sangría
+antes de entregarlo. No usar `st.markdown` directo ahí.
+
+### Una grilla CSS con mínimo fijo tapa lo que tiene al lado
+El ranking usaba `repeat(8, minmax(64px, 92px))`: no entraba en su columna, se
+desbordaba y pasaba por encima de la franja de botones. **El síntoma era que
+los botones parecían borrados**, y `AppTest` no lo ve porque no calcula layout.
+Los tracks van en `minmax(0, …)` para que se encojan antes de invadir.
+
+### Los tres denominadores del buscador de manifiestos
+Confundirlos es el error clásico de este módulo y por eso la etiqueta de
+pantalla siempre dice cuál es. `buscador.ranking` los resuelve con un solo
+argumento, `denominador`: sin pasarlo compara contra el propio recorte
+(reparto interno de una entidad, suma 100%); pasando el cuadrante entero da
+participación de mercado. La captura de un cliente es un tercer denominador —el
+total de ese cliente— y sale de una sola consulta con `FILTER`, nunca de dos
+consultas divididas en Python. Todo está en `docs/manifiestos_metricas.md`.
+
+### Los cajones de la fuente no son empresas
+`A LA ORDEN`, `TO ORDER%`, `TO THE ORDER OF <banco>`, `EMBARQUE DIRECTO`,
+`ZZ-OTRAS` y las filiales peruanas de las navieras ocupan el top de cualquier
+ranking sin ser importadores reales. Se marcan siempre y se excluyen con un
+interruptor. **La lista se completó contra el lake, no de memoria**: la primera
+versión tenía 12 nombres y dejaba pasar 174 más, porque la fuente escribe cada
+endoso bancario como un nombre distinto y COSCO aparece con tres grafías.
+El síntoma fue un listado de prospección que ofrecía visitar a un banco.
+
 ### El caso de borde de manifiestos es `expo_aereo`
 Sin país, sin puerto de destino, con FOB en el 6% de las guías y HS en el 6%.
 Es a esta capa lo que Bolivia es a la freemium. `tests/test_dashboard_manifiestos.py`
@@ -443,7 +491,7 @@ python build_freemium.py           # precómputo freemium: data/freemium/ → re
 python build_manifiestos.py        # lake manifiestos: data/data-manifiestos/ → data/manifiestos/
 streamlit run src/dashboard.py     # dashboard (los tres módulos)
 uvicorn src.api:app --reload       # API
-pytest -v                          # 396 tests
+pytest -v                          # 476 tests
 ```
 
 ## Despliegue
