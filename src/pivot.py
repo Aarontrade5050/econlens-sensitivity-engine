@@ -49,23 +49,61 @@ class Dimension:
 
 @dataclass(frozen=True)
 class Metrica:
-    """Un valor agregable."""
+    """Un valor agregable.
+
+    `columna` es el caso normal: una columna del lake. `nucleo` es la salida
+    para las métricas que no son una columna sino una expresión por fila
+    —contenedores, que es la suma de las cajas de 20 y de 40 pies—, y evita que
+    la interfaz tenga que sumar dos métricas a mano.
+    """
 
     name: str
     etiqueta: str
     grupo: str
     columna: str | None = None
+    nucleo: str | None = None
+    depende_de: tuple[str, ...] = ()
     agregacion: str = "suma"
     agregaciones: tuple[str, ...] = ("suma", "promedio", "maximo", "minimo")
     decimales: int = 0
 
-    def sql(self, agregacion: str) -> str:
+    @property
+    def expresion(self) -> str:
+        """Lo que se agrega: una columna, una expresión, o `*` para contar."""
+        return self.nucleo or self.columna or "*"
+
+    @property
+    def columnas(self) -> tuple[str, ...]:
+        """Columnas del lake que la métrica necesita para tener algún dato."""
+        if self.depende_de:
+            return self.depende_de
+        if self.columna and self.columna != "*":
+            return (self.columna,)
+        return ()
+
+    def _validar(self, agregacion: str) -> None:
         if agregacion not in self.agregaciones:
             raise ValueError(
                 f"La métrica '{self.name}' no admite la agregación "
                 f"'{agregacion}'. Admite: {list(self.agregaciones)}"
             )
-        return AGREGACIONES[agregacion].format(col=self.columna or "*")
+
+    def sql(self, agregacion: str) -> str:
+        self._validar(agregacion)
+        return AGREGACIONES[agregacion].format(col=self.expresion)
+
+    def sql_si(self, condicion: str, agregacion: str) -> str:
+        """El mismo agregado restringido a las filas que cumplen `condicion`.
+
+        Es lo que arma cada columna de una tabla cruzada, y lo que compara a un
+        operador contra el total de su cliente sin salir de una consulta.
+        """
+        self._validar(agregacion)
+        if self.expresion == "*":
+            return f"COUNT(CASE WHEN {condicion} THEN 1 END)"
+        return AGREGACIONES[agregacion].format(
+            col=f"CASE WHEN {condicion} THEN {self.expresion} END"
+        )
 
 
 AGREGACIONES: dict[str, str] = {
@@ -130,6 +168,15 @@ METRICAS: dict[str, Metrica] = {
         Metrica("teus", "TEUs", "Carga", "teus"),
         Metrica("cont_20", "Contenedores 20'", "Carga", "cont_20"),
         Metrica("cont_40", "Contenedores 40' (FEU)", "Carga", "cont_40"),
+        # Cajas físicas, no unidades equivalentes: 100 contenedores de 40 pies
+        # son 100 contenedores y ~200 TEUs. El `CASE` conserva el nulo cuando
+        # el formato no declara contenedores —el aéreo— en vez de devolver 0.
+        Metrica(
+            "contenedores", "Contenedores", "Carga",
+            nucleo=("CASE WHEN cont_20 IS NULL AND cont_40 IS NULL THEN NULL "
+                    "ELSE COALESCE(cont_20, 0) + COALESCE(cont_40, 0) END"),
+            depende_de=("cont_20", "cont_40"), agregaciones=("suma",),
+        ),
         Metrica("n_partidas", "Partidas declaradas", "Carga", "n_partidas"),
         Metrica("registros", "Guías / BL", "Conteos", "*",
                 agregacion="conteo", agregaciones=("conteo",)),
@@ -214,7 +261,7 @@ def conectar(lake: Path | str) -> duckdb.DuckDBPyConnection:
     if not lake.is_dir() or not any(lake.rglob("*.parquet")):
         raise ValueError(
             f"No hay datos de manifiestos en {lake}. "
-            "Corré `python build_manifiestos.py` para construir el lake."
+            "Corre `python build_manifiestos.py` para construir el lake."
         )
 
     clave = str(lake.resolve())
@@ -297,9 +344,9 @@ def run_pivot(
     de cada columna resultante.
     """
     if not filas:
-        raise ValueError("Elegí al menos una dimensión para las filas.")
+        raise ValueError("Elige al menos una dimensión para las filas.")
     if not metricas:
-        raise ValueError("Elegí al menos una métrica.")
+        raise ValueError("Elige al menos una métrica.")
 
     dimensiones = [_dimension(f) for f in filas]
     pedidas = [_metrica(m) for m in metricas]
@@ -337,13 +384,8 @@ def run_pivot(
         una_metrica = len(metricas) == 1
         for valor in valores:
             for pedida, (metrica, agregacion) in zip(metricas, pedidas):
-                columna_valor = metrica.sql(agregacion).replace(
-                    metrica.columna or "*",
-                    f"CASE WHEN {dim_columna.sql} = ? "
-                    f"THEN {metrica.columna} END",
-                    1,
-                ) if metrica.columna != "*" else (
-                    f"COUNT(CASE WHEN {dim_columna.sql} = ? THEN 1 END)"
+                columna_valor = metrica.sql_si(
+                    f"{dim_columna.sql} = ?", agregacion
                 )
                 titulo = valor if una_metrica else f"{valor} · {metrica.etiqueta}"
                 seleccion.append(f'{columna_valor} AS "{titulo}"')
@@ -371,7 +413,7 @@ def run_totales(
 ) -> dict[str, float]:
     """Agrega las métricas sobre todo el universo filtrado, sin agrupar."""
     if not metricas:
-        raise ValueError("Elegí al menos una métrica.")
+        raise ValueError("Elige al menos una métrica.")
 
     pedidas = [_metrica(m) for m in metricas]
     con = conectar(lake)
@@ -462,3 +504,37 @@ def dimensiones_disponibles(
         f"SELECT {seleccion} FROM m {filtro.where}", filtro.params
     ).pl()
     return [c for c in fila.columns if (fila[c][0] or 0) > 0]
+
+
+def metricas_disponibles(
+    lake: Path | str,
+    filtros: dict[str, Sequence[str]] | None = None,
+    desde: str | None = None,
+    hasta: str | None = None,
+) -> list[str]:
+    """Métricas que tienen algún dato en el universo filtrado.
+
+    El gemelo de `dimensiones_disponibles`: el manifiesto aéreo no declara
+    contenedores ni TEUs, y la exportación no declara CIF ni flete. Ofrecer esas
+    métricas sería ofrecer una columna entera de guiones.
+    """
+    con = conectar(lake)
+    filtro = _filtrar(filtros, desde, hasta)
+    del_lake = _columnas(con)
+
+    sin_columna = [n for n, m in METRICAS.items() if not m.columnas]
+    necesarias = sorted(
+        {c for m in METRICAS.values() for c in m.columnas if c in del_lake}
+    )
+    if not necesarias:
+        return sin_columna
+
+    seleccion = ", ".join(f'COUNT({c}) AS "{c}"' for c in necesarias)
+    fila = con.execute(
+        f"SELECT {seleccion} FROM m {filtro.where}", filtro.params
+    ).pl()
+    con_dato = {c for c in fila.columns if (fila[c][0] or 0) > 0}
+    return [
+        n for n, m in METRICAS.items()
+        if m.columnas and all(c in con_dato for c in m.columnas)
+    ] + sin_columna
