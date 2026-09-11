@@ -213,7 +213,9 @@ marimo/_lsp/
 __marimo__/
 
 
-data/
+# `data/*` y no `data/`: git no puede re-incluir nada dentro de un directorio
+# excluido, y el lake de manifiestos sí se versiona (ver más abajo).
+data/*
 *.parquet
 *.xlsx
 
@@ -227,5 +229,13 @@ notebooks/
 # en cada reconstrucción.
 !resources/freemium/*.parquet
 resources/freemium/base/
+
+# El lake de manifiestos se versiona desde 2026-09-10: es lo que lee el módulo
+# desplegado, igual que los artefactos freemium. Son 18 MB en 11 parquet.
+# OJO: el historial de git es permanente. Cada reconstrucción del lake agrega
+# una copia nueva que no se recupera borrándola después.
+!data/manifiestos/
+!data/manifiestos/**/
+!data/manifiestos/**/*.parquet
 
 pytest.ini

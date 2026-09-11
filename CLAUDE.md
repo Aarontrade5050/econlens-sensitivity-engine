@@ -107,7 +107,7 @@ data/
   processed/       # econolens.duckdb, CSVs de output (ignorados por git)
   freemium/        # {PAIS}/{IM|EX}/{AÑO}.parquet — fuente estadística LATAM (ignorada por git)
   data-manifiestos/# CSV crudos de manifiestos Perú (ignorados por git)
-  manifiestos/     # lake: periodo=/flujo=/via=/datos.parquet (ignorado por git)
+  manifiestos/     # lake: periodo=/flujo=/via=/datos.parquet (SÍ versionado, 18 MB)
 docs/
   manifiestos_metricas.md # contrato diseño↔código: cada número del buscador, con su SQL y su denominador
 resources/
@@ -198,7 +198,11 @@ Para agregar un mes: dejar los CSV en `data/data-manifiestos/` y correr
   sale de las columnas `DIA`/`MES`/`AÑO`**, no del nombre: tres formatos escriben
   `..._2026_7.csv` y ex_aereo escribe `..._072026_7.csv`
 - Lake: `data/manifiestos/periodo=YYYY-MM/flujo=/via=/datos.parquet` (hive). 32,5 MB
-  de CSV → 4,7 MB de parquet zstd; ~9 MB por mes completo. **No se versiona**
+  de CSV → 4,7 MB de parquet zstd; ~9 MB por mes completo. **Se versiona**, igual
+  que los artefactos freemium: es lo que lee el módulo desplegado. Decisión de
+  2026-09-10, tomada sabiendo que publica nombres de importadores peruanos y sus
+  volúmenes en un repo público, y que **el historial de git no se deshace**: cada
+  reconstrucción del lake agrega una copia que no se recupera borrándola después
 - **Una fila es una guía (aérea) o un conocimiento de embarque (marítimo), NO una
   declaración.** De ahí salen los dos problemas que definen el módulo:
 - **El valor de la DUA viene repetido en todas sus filas.** La DUA
@@ -500,6 +504,9 @@ pytest -v                          # 476 tests
 - Panel: https://share.streamlit.io → *Manage app* para ver logs en vivo
 - En la nube **no existe** `econolens.duckdb`: el freemium lee sus parquet y el
   premium cae al file uploader. Verificado escondiendo la DB local.
+- El buscador de manifiestos sí funciona en la nube: su lake está versionado. Al
+  agregar un mes hay que correr `build_manifiestos.py` **y commitear el lake**, o
+  el deploy sigue con los meses viejos
 - El repo pesa ~38 MB por los artefactos freemium, así que el primer clone del
   deploy tarda más de lo habitual
 - `notebooks/` está gitignoreado: guardaba RUC y razón social de importadores en

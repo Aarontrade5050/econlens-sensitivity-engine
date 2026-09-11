@@ -503,8 +503,8 @@ def _sin_datos() -> None:
           <span class="fm-mono">data/data-manifiestos/</span> y corre:</p>
         <p class="fm-mono" style="background:{C['line']};padding:10px 14px;
            border-radius:8px;font-size:13px">python build_manifiestos.py</p>
-        <p class="fm-note">Los manifiestos no se versionan en el repositorio,
-          así que el módulo funciona sobre una copia local de la data.</p>
+        <p class="fm-note">El lake se versiona con el repositorio, así que este
+          mensaje solo aparece si todavía no lo construiste.</p>
       </div>""")
 
 

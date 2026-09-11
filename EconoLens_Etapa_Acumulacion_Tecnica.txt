@@ -1327,10 +1327,21 @@ ESTADO AL CIERRE DE LA SESIÓN "rediseño-buscador"
     · Diseño de referencia: canvas "Buscador de Manifiestos"
 
 PENDIENTES QUE PASAN A LA PRÓXIMA SESIÓN
-    [~] Mergear fase12-manifiestos a main. Streamlit Cloud despliega main, y el
-        lake no se versiona: en la nube el módulo mostrará su estado vacío
-    [~] Decidir el uploader de CSV para que el módulo sirva en la nube (~1 h).
-        Es lo que ya hace el premium con su file uploader
+    [✔] 2026-09-10: se versiona el lake completo (18 MB, 11 parquet) y la rama
+        se mergea a main. Decisión de Aaron, tomada sabiendo que publica nombres
+        de importadores y volúmenes en un repo PÚBLICO. Se evaluaron y
+        descartaron: agregados tipo freemium (560k filas, MÁS que el lake, y
+        rompe la tabla dinámica), lake recortado sin DUA/BL/RUC/fecha (8,9 MB,
+        costaba 2 métricas que nadie usa), bucket externo con st.secrets y
+        túnel temporal para la demo
+    [~] Al agregar un mes: correr build_manifiestos.py Y COMMITEAR el lake, o
+        el deploy se queda con los meses viejos
+    [~] El historial de git guarda cada reconstrucción del lake. A 6 MB por mes
+        son ~72 MB al año que no se recuperan. Revisar en unos meses
+    [~] 481 MB del repo son nueve .xlsx de data/raw/ que entraron en 019dd97 y
+        que 799a03a "borró" sin sacarlos del historial: siguen siendo
+        descargables desde GitHub. Son importaciones crudas de SUNAT con
+        nombres de importadores. Decidir si se reescribe el historial
     [~] Falta impo_aereo de junio 2026 en el lake: confirmar si el CSV existe
     [~] Reclamar al proveedor el extracto completo de mayo (57% de guías con DUA
         contra 96% en junio y julio)
