@@ -46,7 +46,7 @@ def _render_landing() -> None:
     """, unsafe_allow_html=True)
 
     st.title("EconoLens")
-    st.caption("Plataforma de inteligencia de comercio exterior")
+    st.caption("Herramienta de inteligencia de comercio exterior")
     st.write("")
 
     izq, centro, der = st.columns(3, gap="large")
